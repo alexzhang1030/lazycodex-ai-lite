@@ -22,6 +22,32 @@ LAZYCODEX_AI_LITE_VERSION=v0.1.0 \
 curl -fsSL https://raw.githubusercontent.com/alexzhang1030/lazycodex-ai-lite/main/scripts/install.sh | sh
 ```
 
+Uninstall:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/alexzhang1030/lazycodex-ai-lite/main/scripts/install.sh | sh -s -- uninstall
+```
+
+Check local state:
+
+```bash
+omo status
+```
+
+## What This Installs
+
+| Item | What it is | How to use it |
+|------|------------|---------------|
+| `omo@sisyphuslabs` | Codex marketplace plugin id. Codex loads hooks, skills, and bundled agents from this plugin. | Installed into `CODEX_HOME/plugins/cache/sisyphuslabs/omo/<version>/`. |
+| `omo` | Lightweight local CLI wrapper written by this repo. It only exposes LazyCodex runtime commands. | `omo install`, `omo uninstall`, `omo status`, `omo ulw-loop --help`. |
+| `runtime/package/` | Prebuilt LazyCodex runtime payload extracted from OMO Codex Light. | Used by `bin/lazycodex-ai-lite.js install`. |
+| `ultrawork agents` | Codex subagent TOML files copied into `CODEX_HOME/agents/`. | Prompt Codex with `ultrawork ...`; Codex can route work to these agents. |
+| `ulw-plan` | Planning skill for durable Ultrawork plans. | Prompt `ulw-plan ...` or use it through Ultrawork-triggered flows. |
+| `ulw-loop` | Loop/goal runtime and CLI. | `omo ulw-loop --help`. |
+| `review-work` | Review skill for completed work. | Prompt `review-work ...`. |
+
+Repo layout and install flow are documented in [docs/repo-graph.md](docs/repo-graph.md).
+
 ## Runtime Profile
 
 Default payload:
@@ -82,6 +108,24 @@ bun run build:executor
 ```
 
 ## Use Executor
+
+Install:
+
+```bash
+bin/lazycodex-ai-lite.js install -- install --no-tui --codex-autonomous
+```
+
+Uninstall:
+
+```bash
+bin/lazycodex-ai-lite.js uninstall
+```
+
+Status:
+
+```bash
+bin/lazycodex-ai-lite.js status
+```
 
 Copy runtime to a directory:
 

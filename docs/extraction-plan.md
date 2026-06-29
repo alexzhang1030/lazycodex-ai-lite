@@ -8,7 +8,7 @@ Create a standalone repo that carries the Codex Light runtime and a native execu
 - Codex marketplace: `sisyphuslabs`
 - Codex plugin: `omo`
 - install target: `~/.codex/plugins/cache/sisyphuslabs/omo/<version>/`
-- executor: `bin/lazycodex-ai-lite-executor`
+- executor: `bin/lazycodex-ai-lite.js` launching `dist/executor.mjs`
 
 ## Runtime Build
 
@@ -23,19 +23,23 @@ It rewrites package metadata to remove workspace install work from the copied pl
 
 ## Executor Build
 
-The executor build runs on Node `>=25.7.0` because tsdown `exe` depends on Node SEA.
+The executor build targets Node `>=25.9.0`.
 
 `src/executor.ts` is the runtime executor. It supports:
 
+- `install [args]`: materialize runtime, run the bundled Codex installer, then write the lightweight `omo` wrapper
+- `uninstall [--dry-run]`: remove managed LazyCodex files and config sections
+- `status [--json]`: inspect local LazyCodex state
+- `ulw-loop [args]`: dispatch to the bundled `omo-ulw-loop` component CLI
+- `ultrawork [args]`: dispatch to the bundled `omo-ultrawork` component CLI
 - `materialize --out <dir>`: copy `runtime/package` to a target directory
-- `install [args]`: materialize runtime and run the bundled Codex installer
 - `pack [args]`: materialize runtime and run `npm pack`
 - `version`: print runtime package version
 
 Build chain:
 
 1. `tsdown` bundles `src/executor.ts` to `dist/executor.mjs`
-2. tsdown `exe` uses Node SEA to write `bin/lazycodex-ai-lite-executor` directly
+2. `bin/lazycodex-ai-lite.js` launches the bundled executor with the active Node runtime
 
 ## Upstream Fast Path
 

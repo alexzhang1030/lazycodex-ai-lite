@@ -19,6 +19,7 @@
     "tsdown": "^0.22.3"
   },
   "bin": {
+    "omo": "bin/lazycodex-ai-lite.js",
     "lazycodex-ai-lite": "bin/lazycodex-ai-lite.js",
     "lazycodex-ai-lite-executor": "bin/lazycodex-ai-lite.js"
   },

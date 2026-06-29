@@ -37,4 +37,8 @@ if command -v shasum >/dev/null 2>&1; then
 fi
 
 tar -xzf "$TMP_DIR/$ASSET" -C "$TMP_DIR"
-node "$TMP_DIR/package/bin/lazycodex-ai-lite.js" install -- install --no-tui --codex-autonomous
+if [ "$#" -eq 0 ]; then
+  node "$TMP_DIR/package/bin/lazycodex-ai-lite.js" install -- install --no-tui --codex-autonomous
+else
+  node "$TMP_DIR/package/bin/lazycodex-ai-lite.js" "$@"
+fi
