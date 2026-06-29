@@ -59,8 +59,6 @@ describe("buildStandalonePackage", () => {
     expect(packageJson.name).toBe("lazycodex-ai-lite");
     expect(packageJson.version).toBe("9.9.9");
     expect(packageJson.files).toEqual([
-      "dist/cli",
-      "dist/cli-node",
       "packages/omo-codex/scripts/install-local.mjs",
       "packages/omo-codex/scripts/install-dist",
       "packages/omo-codex/plugin",
@@ -110,7 +108,8 @@ describe("buildStandalonePackage", () => {
     expect(await exists(join(outDir, "packages/omo-codex/plugin/scripts/auto-update.mjs"))).toBe(false);
     expect(await exists(join(outDir, "packages/git-bash-mcp/dist/cli.js"))).toBe(false);
     expect(await exists(join(outDir, "packages/lsp-daemon/dist/cli.js"))).toBe(false);
-    expect(await exists(join(outDir, "dist/cli/index.d.ts"))).toBe(false);
+    expect(await exists(join(outDir, "dist/cli/index.js"))).toBe(false);
+    expect(await exists(join(outDir, "dist/cli-node/index.js"))).toBe(false);
   });
 
   test("keeps selected optional packs", async () => {
@@ -155,9 +154,6 @@ describe("buildStandalonePackage", () => {
 
 async function createFakeSource(sourceRoot: string): Promise<void> {
   await writeJson(join(sourceRoot, "package.json"), { name: "oh-my-openagent", version: "1.2.3" });
-  await writeText(join(sourceRoot, "dist/cli/index.js"), "console.log('omo cli');\n");
-  await writeText(join(sourceRoot, "dist/cli/index.d.ts"), "export {};\n");
-  await writeText(join(sourceRoot, "dist/cli-node/index.js"), "console.log('omo node cli');\n");
   await writeJson(join(sourceRoot, "packages/omo-codex/marketplace.json"), {
     name: "sisyphuslabs",
     plugins: [{ name: "omo", source: "./plugins/omo" }]

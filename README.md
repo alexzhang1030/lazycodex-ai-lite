@@ -5,7 +5,7 @@ Standalone repo for extracting and executing the LazyCodex multi-agent runtime f
 It produces two artifacts:
 
 - `runtime/package/`: npm-style runtime payload for `omo@sisyphuslabs`
-- `dist/executor.mjs` + `bin/lazycodex-ai-lite.js`: small Node executor built by tsdown
+- `dist/executor.mjs` + `bin/lazycodex-ai-lite.js`: small Node-only executor built by tsdown
 
 Distribution is through GitHub Releases. The installer downloads the release tarball and runs the bundled executor locally.
 
@@ -95,8 +95,6 @@ The source repo needs generated Codex artifacts first:
 cd /Users/alex/code/contribution/oh-my-openagent
 bun run build:codex-install
 bun run build:codex-plugin
-bun build packages/omo-opencode/src/cli/index.ts --outdir dist/cli --target bun --format esm
-bun run build:cli-node
 ```
 
 ## Build Executor
@@ -174,8 +172,8 @@ The extractor keeps this runtime surface:
 - `packages/omo-codex/scripts/install-dist/`
 - `packages/omo-codex/marketplace.json`
 - `packages/omo-codex/plugin/`
-- `dist/cli/`
-- `dist/cli-node/`
+
+The full upstream `dist/cli` and `dist/cli-node` bundles are intentionally excluded. This repo ships the lightweight Node executor as the only outer CLI.
 
 The extractor rewrites package metadata and records the selected feature set in `lazycodex-standalone.json`.
 

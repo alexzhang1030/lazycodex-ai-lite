@@ -24,8 +24,6 @@ lazycodex-ai-lite/
 +-- runtime/package/
 |   +-- lazycodex-standalone.json
 |   +-- package.json
-|   +-- dist/cli/
-|   +-- dist/cli-node/
 |   +-- packages/omo-codex/
 |       +-- marketplace.json
 |       +-- scripts/install-local.mjs

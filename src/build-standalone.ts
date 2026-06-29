@@ -29,8 +29,6 @@ interface FeatureSelection {
 }
 
 const copyEntries: readonly CopyEntry[] = [
-  { from: "dist/cli", to: "dist/cli" },
-  { from: "dist/cli-node", to: "dist/cli-node" },
   { from: "packages/omo-codex/marketplace.json", to: "packages/omo-codex/marketplace.json" },
   { from: "packages/omo-codex/scripts/install-local.mjs", to: "packages/omo-codex/scripts/install-local.mjs" },
   { from: "packages/omo-codex/scripts/install-dist", to: "packages/omo-codex/scripts/install-dist" },
@@ -38,8 +36,6 @@ const copyEntries: readonly CopyEntry[] = [
 ];
 
 const requiredFiles = [
-  "dist/cli/index.js",
-  "dist/cli-node/index.js",
   "packages/omo-codex/marketplace.json",
   "packages/omo-codex/scripts/install-local.mjs",
   "packages/omo-codex/scripts/install-dist/install-local.mjs",
@@ -324,8 +320,6 @@ async function writeStandalonePackageJson(
       lazycodex: "packages/omo-codex/scripts/install-local.mjs"
     },
     files: [
-      "dist/cli",
-      "dist/cli-node",
       "packages/omo-codex/scripts/install-local.mjs",
       "packages/omo-codex/scripts/install-dist",
       "packages/omo-codex/plugin",

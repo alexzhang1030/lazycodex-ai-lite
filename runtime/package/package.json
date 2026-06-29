@@ -8,8 +8,6 @@
     "lazycodex": "packages/omo-codex/scripts/install-local.mjs"
   },
   "files": [
-    "dist/cli",
-    "dist/cli-node",
     "packages/omo-codex/scripts/install-local.mjs",
     "packages/omo-codex/scripts/install-dist",
     "packages/omo-codex/plugin",

@@ -14,12 +14,10 @@ Create a standalone repo that carries the Codex Light runtime and a native execu
 
 `src/build-standalone.ts` copies a prebuilt subset from `../oh-my-openagent` into `runtime/package/`:
 
-1. root `dist/cli` and `dist/cli-node` for the `omo` wrapper
-2. `packages/omo-codex` installer scripts and plugin payload
-3. `packages/git-bash-mcp/dist`
-4. `packages/lsp-daemon/dist`
+1. `packages/omo-codex` installer scripts and plugin payload
+2. selected plugin components, hooks, and skills
 
-It rewrites package metadata to remove workspace install work from the copied plugin package and patches the generated installer bundle so `lazycodex-ai-lite` is treated as packaged layout.
+It rewrites package metadata to remove workspace install work from the copied plugin package and patches the generated installer bundle so `lazycodex-ai-lite` is treated as packaged layout. The full upstream `dist/cli` and `dist/cli-node` bundles stay out of the runtime; `dist/executor.mjs` is the only outer CLI runtime.
 
 ## Executor Build
 

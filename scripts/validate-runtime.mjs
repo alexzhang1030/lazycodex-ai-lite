@@ -13,8 +13,6 @@ const expectedHooks = [
 
 const requiredFiles = [
   "package.json",
-  "dist/cli/index.js",
-  "dist/cli-node/index.js",
   "packages/omo-codex/scripts/install-local.mjs",
   "packages/omo-codex/scripts/install-dist/install-local.mjs",
   "packages/omo-codex/plugin/.codex-plugin/plugin.json",
