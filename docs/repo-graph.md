@@ -12,7 +12,7 @@ lazycodex-ai-lite/
 |   +-- tsdown bundle built from src/executor.ts
 +-- src/
 |   +-- executor.ts
-|   |   +-- install: materialize runtime, run bundled Codex installer, write lightweight omo wrapper
+|   |   +-- install: materialize runtime, copy Codex plugin payload, write Codex config, link CLIs
 |   |   +-- uninstall: remove managed LazyCodex Codex artifacts
 |   |   +-- status: inspect managed LazyCodex Codex artifacts
 |   |   +-- ulw-loop / ultrawork: dispatch to component CLIs
@@ -26,15 +26,20 @@ lazycodex-ai-lite/
 |   +-- package.json
 |   +-- packages/omo-codex/
 |       +-- marketplace.json
-|       +-- scripts/install-local.mjs
 |       +-- plugin/
 |           +-- .codex-plugin/plugin.json
 |           +-- .mcp.json
 |           +-- hooks/
 |           +-- components/
 |           |   +-- bootstrap/
+|           |   |   +-- scripts/node-dispatch.ps1
 |           |   +-- ultrawork/
+|           |   |   +-- agents/
+|           |   |   +-- dist/
+|           |   |   +-- directive.md
 |           |   +-- ulw-loop/
+|           |       +-- dist/
+|           |       +-- directive.md
 |           +-- skills/
 |               +-- review-work/
 |               +-- ulw-plan/
@@ -55,15 +60,14 @@ scripts/install.sh
   +-- downloads lazycodex-ai-lite.tar.gz from GitHub Releases
       +-- node package/bin/lazycodex-ai-lite.js install
           +-- dist/executor.mjs
-              +-- copies runtime/package to CODEX_HOME/runtime/lazycodex-ai-lite-package
-              +-- runs packages/omo-codex/scripts/install-local.mjs
-              |   +-- installs plugin cache at CODEX_HOME/plugins/cache/sisyphuslabs/omo/<version>
-              |   +-- writes marketplace snapshot at CODEX_HOME/.tmp/marketplaces/sisyphuslabs
-              |   +-- enables plugins."omo@sisyphuslabs" in CODEX_HOME/config.toml
-              |   +-- trusts the bundled hook state in CODEX_HOME/config.toml
-              |   +-- copies managed agents into CODEX_HOME/agents
-              |   +-- links component CLIs into the local bin dir
-              +-- rewrites omo in the local bin dir as the lightweight LazyCodex CLI
+              +-- copy runtime/package to CODEX_HOME/runtime/lazycodex-ai-lite-package
+              +-- install plugin cache at CODEX_HOME/plugins/cache/sisyphuslabs/omo/<version>
+              +-- write marketplace snapshot at CODEX_HOME/.tmp/marketplaces/sisyphuslabs
+              +-- enable plugins."omo@sisyphuslabs" in CODEX_HOME/config.toml
+              +-- trust the bundled hook state in CODEX_HOME/config.toml
+              +-- copy managed agents into CODEX_HOME/agents
+              +-- link component CLIs into the local bin dir
+              +-- write omo in the local bin dir as the lightweight LazyCodex CLI
 ```
 
 The local bin dir is `CODEX_LOCAL_BIN_DIR` when set. With the default `CODEX_HOME=~/.codex`, it is `~/.local/bin`. With a custom `CODEX_HOME`, it is `CODEX_HOME/bin`.
@@ -93,7 +97,7 @@ Config cleanup targets these sections:
 
 | Component | Role | Entry |
 |-----------|------|-------|
-| `bootstrap` | Codex bootstrap component used by the plugin runtime. | Hook component under `plugin/components/bootstrap/`. |
+| `bootstrap` | Windows command dispatcher used by selected hooks. | `plugin/components/bootstrap/scripts/node-dispatch.ps1`. |
 | `ultrawork` | Agent bundle and prompt trigger for Ultrawork planning/execution. | Agents under `plugin/components/ultrawork/agents/`; CLI linked as `omo-ultrawork`. |
 | `ulw-loop` | Goal/loop runtime and steering hook. | CLI linked as `omo-ulw-loop`; exposed through `omo ulw-loop`. |
 | `review-work` | Review skill for completed work. | Skill under `plugin/skills/review-work/`. |

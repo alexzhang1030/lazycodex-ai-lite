@@ -30,20 +30,13 @@ interface FeatureSelection {
 
 const copyEntries: readonly CopyEntry[] = [
   { from: "packages/omo-codex/marketplace.json", to: "packages/omo-codex/marketplace.json" },
-  { from: "packages/omo-codex/scripts/install-local.mjs", to: "packages/omo-codex/scripts/install-local.mjs" },
-  { from: "packages/omo-codex/scripts/install-dist", to: "packages/omo-codex/scripts/install-dist" },
   { from: "packages/omo-codex/plugin", to: "packages/omo-codex/plugin" }
 ];
 
 const requiredFiles = [
   "packages/omo-codex/marketplace.json",
-  "packages/omo-codex/scripts/install-local.mjs",
-  "packages/omo-codex/scripts/install-dist/install-local.mjs",
   "packages/omo-codex/plugin/.codex-plugin/plugin.json",
-  "packages/omo-codex/plugin/.mcp.json",
-  "packages/omo-codex/plugin/package.json",
-  "packages/omo-codex/plugin/scripts/migrate-omo-sot.mjs",
-  "packages/omo-codex/plugin/scripts/migrate-omo-sot/editor.mjs"
+  "packages/omo-codex/plugin/.mcp.json"
 ] as const;
 
 const coreFeatureDefinition = {
@@ -95,15 +88,7 @@ const allowedPluginRootEntries = new Set([
   ".mcp.json",
   "components",
   "hooks",
-  "package-lock.json",
-  "package.json",
-  "scripts",
   "skills"
-]);
-
-const allowedPluginScriptEntries = new Set([
-  "migrate-omo-sot",
-  "migrate-omo-sot.mjs"
 ]);
 
 const ignoredDirectoryNames = new Set([
@@ -165,10 +150,6 @@ export async function buildStandalonePackage(options: BuildOptions): Promise<voi
   const version = options.version ?? await readSourceVersion(sourceRoot);
   await filterCodexPluginPayload(join(outDir, "packages/omo-codex/plugin"), featureSelection, version);
   await writeStandalonePackageJson(outDir, { packageName, version });
-  await rewritePluginPackageMetadata(outDir, version);
-  const installerPath = join(outDir, "packages/omo-codex/scripts/install-dist/install-local.mjs");
-  await patchInstallerPackagedNames(installerPath, packageName);
-  await patchInstallerForLiteProfile(installerPath);
   await writeBuildManifest(outDir, { sourceRoot, packageName, version, featureSelection });
 }
 
@@ -178,7 +159,9 @@ async function assertRequiredSourceFiles(sourceRoot: string): Promise<void> {
 
 async function assertFeatureSourceFiles(sourceRoot: string, selection: FeatureSelection): Promise<void> {
   const files = [
-    ...[...selection.components].map((component) => `packages/omo-codex/plugin/components/${component}/dist/cli.js`),
+    ...[...selection.components].map((component) => component === "bootstrap"
+      ? "packages/omo-codex/plugin/components/bootstrap/scripts/node-dispatch.ps1"
+      : `packages/omo-codex/plugin/components/${component}/dist/cli.js`),
     ...[...selection.hooks].map((hook) => `packages/omo-codex/plugin/hooks/${hook}`),
     ...[...selection.skills].map((skill) => `packages/omo-codex/plugin/skills/${skill}/SKILL.md`)
   ];
@@ -222,12 +205,32 @@ function shouldCopyPath(path: string, root: string): boolean {
 
 async function filterCodexPluginPayload(pluginRoot: string, selection: FeatureSelection, version: string): Promise<void> {
   await pruneDirectoryChildren(pluginRoot, allowedPluginRootEntries);
-  await pruneDirectoryChildren(join(pluginRoot, "scripts"), allowedPluginScriptEntries);
   await pruneDirectoryChildren(join(pluginRoot, "components"), selection.components);
+  await trimSelectedComponentPayloads(pluginRoot, selection);
   await pruneDirectoryChildren(join(pluginRoot, "hooks"), selection.hooks);
   await pruneDirectoryChildren(join(pluginRoot, "skills"), selection.skills);
   await writeJson(join(pluginRoot, ".mcp.json"), { mcpServers: {} });
   await rewritePluginManifest(pluginRoot, selection, version);
+}
+
+async function trimSelectedComponentPayloads(pluginRoot: string, selection: FeatureSelection): Promise<void> {
+  for (const component of selection.components) {
+    const componentRoot = join(pluginRoot, "components", component);
+    if (component === "bootstrap") {
+      await pruneDirectoryChildren(componentRoot, new Set(["scripts"]));
+      await pruneDirectoryChildren(join(componentRoot, "scripts"), new Set(["node-dispatch.ps1"]));
+      continue;
+    }
+    if (component === "ultrawork") {
+      await pruneDirectoryChildren(componentRoot, new Set(["agents", "dist", "directive.md"]));
+      continue;
+    }
+    if (component === "ulw-loop") {
+      await pruneDirectoryChildren(componentRoot, new Set(["dist", "directive.md"]));
+      continue;
+    }
+    await pruneDirectoryChildren(componentRoot, new Set(["agents", "dist", "directive.md"]));
+  }
 }
 
 async function rewritePluginManifest(pluginRoot: string, selection: FeatureSelection, version: string): Promise<void> {
@@ -314,14 +317,7 @@ async function writeStandalonePackageJson(
     name: input.packageName,
     version: input.version,
     type: "module",
-    bin: {
-      "lazycodex-ai-lite": "packages/omo-codex/scripts/install-local.mjs",
-      "lazycodex-ai": "packages/omo-codex/scripts/install-local.mjs",
-      lazycodex: "packages/omo-codex/scripts/install-local.mjs"
-    },
     files: [
-      "packages/omo-codex/scripts/install-local.mjs",
-      "packages/omo-codex/scripts/install-dist",
       "packages/omo-codex/plugin",
       "packages/omo-codex/marketplace.json"
     ],
@@ -331,69 +327,6 @@ async function writeStandalonePackageJson(
     devDependencies: {}
   };
   await writeJson(join(outDir, "package.json"), packageJson);
-}
-
-async function rewritePluginPackageMetadata(outDir: string, version: string): Promise<void> {
-  const pluginPackagePath = join(outDir, "packages/omo-codex/plugin/package.json");
-  const pluginPackage = JSON.parse(await readFile(pluginPackagePath, "utf8")) as Record<string, unknown>;
-  pluginPackage.version = version;
-  pluginPackage.private = true;
-  pluginPackage.workspaces = [];
-  pluginPackage.scripts = {};
-  pluginPackage.dependencies = {};
-  pluginPackage.devDependencies = {};
-  pluginPackage.optionalDependencies = {};
-  await writeJson(pluginPackagePath, pluginPackage);
-
-  const lockfile = {
-    name: typeof pluginPackage.name === "string" ? pluginPackage.name : "@sisyphuslabs/omo-codex-plugin",
-    version,
-    lockfileVersion: 3,
-    requires: true,
-    packages: {
-      "": {
-        name: typeof pluginPackage.name === "string" ? pluginPackage.name : "@sisyphuslabs/omo-codex-plugin",
-        version,
-        dependencies: {}
-      }
-    }
-  };
-  await writeJson(join(outDir, "packages/omo-codex/plugin/package-lock.json"), lockfile);
-}
-
-async function patchInstallerPackagedNames(installerPath: string, packageName: string): Promise<void> {
-  const installer = await readFile(installerPath, "utf8");
-  if (installer.includes(JSON.stringify(packageName))) return;
-  const marker = '"lazycodex-ai",';
-  if (!installer.includes(marker)) {
-    throw new Error(`Unable to patch packaged installer names in ${installerPath}`);
-  }
-  await writeFile(installerPath, installer.replace(marker, `${marker}\n  ${JSON.stringify(packageName)},`));
-}
-
-async function patchInstallerForLiteProfile(installerPath: string): Promise<void> {
-  const installer = await readFile(installerPath, "utf8");
-  const startMarker = "function ensureOmoBuiltinMcpPolicies(config, input) {";
-  const endMarker = "function ensureHookTrusted(config, state) {";
-  const startIndex = installer.indexOf(startMarker);
-  if (startIndex < 0) return;
-  const endIndex = installer.indexOf(endMarker, startIndex);
-  if (endIndex < 0) return;
-  const replacement = [
-    "function ensureOmoBuiltinMcpPolicies(config, input) {",
-    "  if (input.marketplaceName !== \"sisyphuslabs\" || !input.pluginNames.includes(\"omo\")) return config;",
-    "  let nextConfig = removeStaleContext7PlaceholderMcp(config);",
-    "  nextConfig = removeTomlSections(nextConfig, (header) =>",
-    "    header === 'plugins.\"omo@sisyphuslabs\".mcp_servers.context7' ||",
-    "    header === 'plugins.\"omo@sisyphuslabs\".mcp_servers.codegraph' ||",
-    "    header === 'plugins.\"omo@sisyphuslabs\".mcp_servers.git_bash'",
-    "  );",
-    "  return nextConfig;",
-    "}",
-    "",
-    ""
-  ].join("\n");
-  await writeFile(installerPath, `${installer.slice(0, startIndex)}${replacement}${installer.slice(endIndex)}`);
 }
 
 async function writeBuildManifest(

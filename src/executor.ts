@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { chmod, copyFile, cp, lstat, mkdtemp, mkdir, readFile, readdir, readlink, rm, stat, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { chmod, copyFile, cp, lstat, mkdtemp, mkdir, readFile, readdir, readlink, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { basename, dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -137,20 +138,18 @@ async function runInstall(args: ExecutorArgs): Promise<number> {
     runtimeRoot: args.runtimeRoot,
     outDir: args.outDir ?? resolveDefaultInstallOutDir()
   });
-  const installerPath = join(packageRoot, "packages", "omo-codex", "scripts", "install-local.mjs");
-  const installArgs = args.passthrough.length > 0 ? [...args.passthrough] : ["install"];
-  const result = spawnSync(resolveNodeCommand(), [installerPath, ...installArgs], {
-    cwd: process.cwd(),
-    stdio: "inherit",
-    env: {
-      ...process.env,
-      OMO_WRAPPER_PACKAGE_ROOT: packageRoot
-    }
+  const options = parseInstallOptions(args.passthrough);
+  if (options.dryRun) {
+    console.log(`Would install LazyCodex from ${packageRoot}`);
+    return 0;
+  }
+  const report = await installLazyCodex({
+    packageRoot,
+    codexHome: resolveCodexHome(),
+    binDir: resolveCodexInstallerBinDir(),
+    autonomousPermissions: options.autonomousPermissions
   });
-  if (result.error !== undefined) throw result.error;
-  const status = result.status ?? 1;
-  if (status !== 0) return status;
-  await installLiteCliEntrypoints({ packageRoot });
+  console.log(`Installed 1 plugin from ${report.marketplaceName}.`);
   return 0;
 }
 
@@ -241,10 +240,6 @@ async function printVersion(runtimeRoot?: string): Promise<void> {
   console.log(typeof packageJson.version === "string" ? packageJson.version : "unknown");
 }
 
-function resolveNodeCommand(): string {
-  return process.env.LAZYCODEX_AI_LITE_NODE?.trim() || "node";
-}
-
 function printHelp(): void {
   console.log([
     "Usage: omo <command> [options]",
@@ -268,19 +263,23 @@ function printHelp(): void {
   ].join("\n"));
 }
 
-async function installLiteCliEntrypoints(input: { readonly packageRoot: string }): Promise<void> {
+async function installLiteCliEntrypoints(input: {
+  readonly packageRoot: string;
+  readonly binDir?: string;
+  readonly executorPath?: string;
+}): Promise<void> {
   const packageBinDir = join(input.packageRoot, "bin");
   const packageDistDir = join(input.packageRoot, "dist");
   const packageEntrypoint = join(packageBinDir, "lazycodex-ai-lite.js");
   const packageExecutor = join(packageDistDir, "executor.mjs");
   await mkdir(packageBinDir, { recursive: true });
   await mkdir(packageDistDir, { recursive: true });
-  await copyFile(await resolveBuiltExecutorPath(), packageExecutor);
+  await copyFile(input.executorPath ?? await resolveBuiltExecutorPath(), packageExecutor);
   await writeFile(packageEntrypoint, nodeEntrypointSource());
   await chmod(packageEntrypoint, 0o755);
   await chmod(packageExecutor, 0o755);
 
-  const binDir = resolveCodexInstallerBinDir();
+  const binDir = resolve(input.binDir ?? resolveCodexInstallerBinDir());
   await mkdir(binDir, { recursive: true });
   if (process.platform === "win32") {
     await writeFile(join(binDir, "omo.cmd"), windowsLiteWrapper(packageEntrypoint));
@@ -342,6 +341,18 @@ interface UninstallReport {
   readonly changedConfig: boolean;
 }
 
+interface InstallReport {
+  readonly codexHome: string;
+  readonly binDir: string;
+  readonly marketplaceName: string;
+  readonly pluginName: string;
+  readonly version: string;
+  readonly pluginRoot: string;
+  readonly installedAgents: readonly string[];
+  readonly componentBins: readonly string[];
+  readonly changedConfig: boolean;
+}
+
 interface InstallStatusReport {
   readonly codexHome: string;
   readonly binDir: string;
@@ -353,6 +364,361 @@ interface InstallStatusReport {
   readonly omoBin: boolean;
   readonly componentBins: readonly string[];
   readonly managedAgents: readonly string[];
+}
+
+interface HookTrustState {
+  readonly key: string;
+  readonly trustedHash: string;
+}
+
+interface InstallOptions {
+  readonly dryRun: boolean;
+  readonly autonomousPermissions: boolean;
+}
+
+export function parseInstallOptions(args: readonly string[]): InstallOptions {
+  let dryRun = false;
+  let autonomousPermissions = true;
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "install" || arg === "setup" || arg === "--no-tui" || arg === "--skip-auth") continue;
+    if (arg === "--dry-run") {
+      dryRun = true;
+      continue;
+    }
+    if (arg === "--codex-autonomous") {
+      autonomousPermissions = true;
+      continue;
+    }
+    if (arg === "--no-codex-autonomous") {
+      autonomousPermissions = false;
+      continue;
+    }
+    if (arg === "--platform") {
+      const value = readOptionValue(args, index, "--platform");
+      if (value !== "codex") throw new Error(`Unsupported platform for LazyCodex Lite: ${value}`);
+      index += 1;
+      continue;
+    }
+    if (arg?.startsWith("--platform=")) {
+      const value = readInlineOptionValue(arg, "--platform");
+      if (value !== "codex") throw new Error(`Unsupported platform for LazyCodex Lite: ${value}`);
+      continue;
+    }
+    throw new Error(`Unsupported install option: ${String(arg)}`);
+  }
+  return { dryRun, autonomousPermissions };
+}
+
+export async function installLazyCodex(input: {
+  readonly packageRoot: string;
+  readonly codexHome: string;
+  readonly binDir: string;
+  readonly autonomousPermissions?: boolean;
+  readonly executorPath?: string;
+}): Promise<InstallReport> {
+  const packageRoot = resolve(input.packageRoot);
+  const codexHome = resolve(input.codexHome);
+  const binDir = resolve(input.binDir);
+  await assertRuntimeRoot(packageRoot);
+  const packageJson = JSON.parse(await readFile(join(packageRoot, "package.json"), "utf8")) as { readonly version?: unknown };
+  const version = typeof packageJson.version === "string" && packageJson.version.trim().length > 0 ? packageJson.version.trim() : "0.0.0";
+  const marketplacePath = join(packageRoot, "packages", "omo-codex", "marketplace.json");
+  const marketplace = JSON.parse(await readFile(marketplacePath, "utf8")) as Record<string, unknown>;
+  const sourcePluginRoot = join(packageRoot, "packages", "omo-codex", "plugin");
+  const pluginRoot = join(codexHome, "plugins", "cache", managedMarketplaceName, managedPluginName, version);
+  const snapshotRoot = join(codexHome, ".tmp", "marketplaces", managedMarketplaceName);
+  const snapshotPluginRoot = join(snapshotRoot, "plugins", managedPluginName);
+  const agentNames = new Set([
+    ...managedAgentFallbackNames,
+    ...await discoverBundledAgentNames(sourcePluginRoot)
+  ]);
+  const configPath = join(codexHome, "config.toml");
+
+  await rm(pluginRoot, { recursive: true, force: true });
+  await rm(snapshotRoot, { recursive: true, force: true });
+  await mkdir(dirname(pluginRoot), { recursive: true });
+  await cp(sourcePluginRoot, pluginRoot, { recursive: true });
+  await cp(sourcePluginRoot, snapshotPluginRoot, { recursive: true });
+  await writeJsonFile(join(codexHome, "plugins", "cache", managedMarketplaceName, ".agents", "plugins", "marketplace.json"), {
+    name: managedMarketplaceName,
+    plugins: [
+      {
+        name: managedPluginName,
+        source: {
+          source: "local",
+          path: `./${managedPluginName}/${version}`
+        }
+      }
+    ]
+  });
+  await writeJsonFile(join(snapshotRoot, ".agents", "plugins", "marketplace.json"), marketplace);
+
+  const installedAgents = await installBundledAgents({ pluginRoot, codexHome });
+  await writeInstalledAgentsManifest(pluginRoot, installedAgents);
+  await writeInstalledAgentsManifest(snapshotPluginRoot, installedAgents);
+  const componentBins = await installComponentBins({ pluginRoot, binDir });
+  await installLiteCliEntrypoints({ packageRoot, binDir, executorPath: input.executorPath });
+
+  const beforeConfig = await readTextIfExists(configPath) ?? "";
+  let config = removeLazyCodexConfig(beforeConfig, agentNames);
+  config = applyCodexInstallConfig({
+    config,
+    codexHome,
+    agentPaths: installedAgents,
+    hookTrustStates: await computeHookTrustStates(pluginRoot),
+    autonomousPermissions: input.autonomousPermissions !== false
+  });
+  const changedConfig = config !== beforeConfig;
+  await mkdir(dirname(configPath), { recursive: true });
+  await writeFile(configPath, config);
+
+  return {
+    codexHome,
+    binDir,
+    marketplaceName: managedMarketplaceName,
+    pluginName: managedPluginName,
+    version,
+    pluginRoot,
+    installedAgents,
+    componentBins,
+    changedConfig
+  };
+}
+
+async function discoverBundledAgentNames(pluginRoot: string): Promise<string[]> {
+  return (await discoverBundledAgentFiles(pluginRoot)).map((path) => basename(path, ".toml"));
+}
+
+async function discoverBundledAgentFiles(pluginRoot: string): Promise<string[]> {
+  const componentsRoot = join(pluginRoot, "components");
+  if (!await isDirectory(componentsRoot)) return [];
+  const components = await readdir(componentsRoot, { withFileTypes: true });
+  const agentFiles: string[] = [];
+  for (const component of components) {
+    if (!component.isDirectory()) continue;
+    const agentsRoot = join(componentsRoot, component.name, "agents");
+    if (!await isDirectory(agentsRoot)) continue;
+    const agents = await readdir(agentsRoot, { withFileTypes: true });
+    for (const agent of agents) {
+      if (agent.isFile() && agent.name.endsWith(".toml")) agentFiles.push(join(agentsRoot, agent.name));
+    }
+  }
+  return agentFiles.sort();
+}
+
+async function installBundledAgents(input: { readonly pluginRoot: string; readonly codexHome: string }): Promise<string[]> {
+  const agentFiles = await discoverBundledAgentFiles(input.pluginRoot);
+  const targetRoot = join(input.codexHome, "agents");
+  await mkdir(targetRoot, { recursive: true });
+  const installed: string[] = [];
+  for (const agentFile of agentFiles) {
+    const target = join(targetRoot, basename(agentFile));
+    await copyFile(agentFile, target);
+    installed.push(target);
+  }
+  return unique(installed).sort();
+}
+
+async function writeInstalledAgentsManifest(pluginRoot: string, agents: readonly string[]): Promise<void> {
+  await writeJsonFile(join(pluginRoot, ".installed-agents.json"), { agents: [...agents].sort() });
+}
+
+async function installComponentBins(input: { readonly pluginRoot: string; readonly binDir: string }): Promise<string[]> {
+  const entries = [
+    { binName: "omo-ultrawork", cli: join(input.pluginRoot, "components", "ultrawork", "dist", "cli.js") },
+    { binName: "omo-ulw-loop", cli: join(input.pluginRoot, "components", "ulw-loop", "dist", "cli.js") }
+  ];
+  await mkdir(input.binDir, { recursive: true });
+  const installed: string[] = [];
+  for (const entry of entries) {
+    if (!await isFile(entry.cli)) continue;
+    await chmod(entry.cli, 0o755);
+    if (process.platform === "win32") {
+      const target = join(input.binDir, `${entry.binName}.cmd`);
+      await rm(target, { force: true });
+      await writeFile(target, windowsComponentWrapper(entry.cli));
+      installed.push(target);
+      continue;
+    }
+    const target = join(input.binDir, entry.binName);
+    await rm(target, { force: true });
+    await symlink(entry.cli, target);
+    installed.push(target);
+  }
+  return installed;
+}
+
+function windowsComponentWrapper(entrypoint: string): string {
+  return ["@echo off", `rem ${upstreamRuntimeWrapperMarker}`, `node "${entrypoint}" %*`, ""].join("\r\n");
+}
+
+function applyCodexInstallConfig(input: {
+  readonly config: string;
+  readonly codexHome: string;
+  readonly agentPaths: readonly string[];
+  readonly hookTrustStates: readonly HookTrustState[];
+  readonly autonomousPermissions: boolean;
+}): string {
+  let config = input.config;
+  if (input.autonomousPermissions) {
+    config = ensureRootTomlSetting(config, "approval_policy", tomlString("never"));
+    config = ensureRootTomlSetting(config, "sandbox_mode", tomlString("danger-full-access"));
+    config = ensureRootTomlSetting(config, "network_access", tomlString("enabled"));
+  }
+  config = ensureTomlSetting(config, "features", "plugins", "true");
+  config = ensureTomlSetting(config, "features", "plugin_hooks", "true");
+  config = ensureTomlSetting(config, "features", "multi_agent", "true");
+  config = ensureTomlSetting(config, "features", "child_agents_md", "true");
+  config = ensureTomlSetting(config, "features", "unified_exec", "true");
+  config = ensureTomlSetting(config, "features", "goals", "true");
+  config = ensureTomlSetting(config, "agents", "max_threads", "1000");
+  config = ensureTomlSetting(config, `marketplaces.${managedMarketplaceName}`, "source_type", tomlString("local"));
+  config = ensureTomlSetting(config, `marketplaces.${managedMarketplaceName}`, "source", tomlString(join(input.codexHome, "plugins", "cache", managedMarketplaceName)));
+  config = ensureTomlSetting(config, `marketplaces.${managedMarketplaceName}`, "last_updated", tomlString(new Date().toISOString()));
+  config = ensureTomlSetting(config, `plugins."${managedPluginName}@${managedMarketplaceName}"`, "enabled", "true");
+  for (const state of input.hookTrustStates) {
+    config = ensureTomlSetting(config, `hooks.state.${JSON.stringify(state.key)}`, "trusted_hash", tomlString(state.trustedHash));
+  }
+  for (const agentPath of input.agentPaths) {
+    const agentName = basename(agentPath, ".toml");
+    config = ensureTomlSetting(config, `agents.${agentName}`, "config_file", tomlString(`./agents/${basename(agentPath)}`));
+  }
+  return ensureTrailingNewline(config.replace(/\n{3,}/g, "\n\n").replace(/[ \t]+\n/g, "\n"));
+}
+
+async function computeHookTrustStates(pluginRoot: string): Promise<HookTrustState[]> {
+  const manifestPath = join(pluginRoot, ".codex-plugin", "plugin.json");
+  const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as { readonly hooks?: unknown };
+  const hookPaths = Array.isArray(manifest.hooks) ? manifest.hooks.filter((hook): hook is string => typeof hook === "string") : [];
+  const states: HookTrustState[] = [];
+  for (const hookPath of hookPaths) {
+    const normalizedHookPath = normalizePluginRelativePath(hookPath);
+    const hookConfig = JSON.parse(await readFile(join(pluginRoot, normalizedHookPath), "utf8")) as { readonly hooks?: unknown };
+    if (!isRecord(hookConfig.hooks)) continue;
+    for (const [eventName, groupsValue] of Object.entries(hookConfig.hooks)) {
+      if (!Array.isArray(groupsValue)) continue;
+      groupsValue.forEach((groupValue, groupIndex) => {
+        if (!isRecord(groupValue) || !Array.isArray(groupValue.hooks)) return;
+        groupValue.hooks.forEach((handlerValue, handlerIndex) => {
+          if (!isRecord(handlerValue)) return;
+          if (handlerValue.async === true || handlerValue.type !== "command" || typeof handlerValue.command !== "string" || handlerValue.command.trim().length === 0) return;
+          const eventLabel = codexHookEventLabel(eventName);
+          const timeout = Math.max(Number(handlerValue.timeout ?? 600), 1);
+          const normalizedHandler: Record<string, unknown> = {
+            type: "command",
+            command: handlerValue.command,
+            timeout,
+            async: false
+          };
+          if (typeof handlerValue.statusMessage === "string") normalizedHandler.statusMessage = handlerValue.statusMessage;
+          const identity: Record<string, unknown> = {
+            event_name: eventLabel,
+            hooks: [normalizedHandler]
+          };
+          if (typeof groupValue.matcher === "string") identity.matcher = groupValue.matcher;
+          const canonical = JSON.stringify(canonicalJson(identity));
+          states.push({
+            key: `${managedPluginName}@${managedMarketplaceName}:${normalizedHookPath}:${eventLabel}:${groupIndex}:${handlerIndex}`,
+            trustedHash: `sha256:${createHash("sha256").update(canonical).digest("hex")}`
+          });
+        });
+      });
+    }
+  }
+  return states.sort((left, right) => left.key.localeCompare(right.key));
+}
+
+function normalizePluginRelativePath(path: string): string {
+  return path.replace(/^\.?[\\/]+/, "").replaceAll("\\", "/");
+}
+
+function codexHookEventLabel(eventName: string): string {
+  const labels: Record<string, string> = {
+    PreToolUse: "pre_tool_use",
+    PermissionRequest: "permission_request",
+    PostToolUse: "post_tool_use",
+    PreCompact: "pre_compact",
+    PostCompact: "post_compact",
+    SessionStart: "session_start",
+    UserPromptSubmit: "user_prompt_submit",
+    SubagentStart: "subagent_start",
+    SubagentStop: "subagent_stop",
+    Stop: "stop"
+  };
+  return labels[eventName] ?? eventName.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
+}
+
+function canonicalJson(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map((item) => canonicalJson(item));
+  if (!isRecord(value)) return value;
+  return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalJson(value[key])]));
+}
+
+function ensureRootTomlSetting(config: string, key: string, value: string): string {
+  const lines = splitTomlLines(config);
+  const firstSection = lines.findIndex((line) => parseTomlHeaderLine(line) !== null);
+  const end = firstSection === -1 ? lines.length : firstSection;
+  const keyPattern = tomlSettingPattern(key);
+  for (let index = 0; index < end; index += 1) {
+    if (keyPattern.test(lines[index] ?? "")) {
+      lines[index] = `${key} = ${value}\n`;
+      return lines.join("");
+    }
+  }
+  lines.splice(end, 0, `${key} = ${value}\n`);
+  return lines.join("");
+}
+
+function ensureTomlSetting(config: string, header: string, key: string, value: string): string {
+  const lines = splitTomlLines(config);
+  const section = findTomlSection(lines, header);
+  if (section === null) return appendTomlBlock(config, header, [`${key} = ${value}`]);
+  const keyPattern = tomlSettingPattern(key);
+  for (let index = section.start + 1; index < section.end; index += 1) {
+    if (keyPattern.test(lines[index] ?? "")) {
+      lines[index] = `${key} = ${value}\n`;
+      return lines.join("");
+    }
+  }
+  lines.splice(section.end, 0, `${key} = ${value}\n`);
+  return lines.join("");
+}
+
+function findTomlSection(lines: readonly string[], header: string): { readonly start: number; readonly end: number } | null {
+  for (let index = 0; index < lines.length; index += 1) {
+    if (parseTomlHeaderLine(lines[index] ?? "") !== header) continue;
+    let end = index + 1;
+    while (end < lines.length && parseTomlHeaderLine(lines[end] ?? "") === null) end += 1;
+    return { start: index, end };
+  }
+  return null;
+}
+
+function appendTomlBlock(config: string, header: string, lines: readonly string[]): string {
+  const base = config.trimEnd();
+  const prefix = base.length > 0 ? `${base}\n\n` : "";
+  return `${prefix}[${header}]\n${lines.join("\n")}\n`;
+}
+
+function splitTomlLines(config: string): string[] {
+  return config.match(/[^\n]*\n?|$/g)?.filter((line) => line.length > 0) ?? [];
+}
+
+function tomlSettingPattern(key: string): RegExp {
+  return new RegExp(`^\\s*${escapeRegExp(key)}\\s*=`);
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function tomlString(value: string): string {
+  return JSON.stringify(value);
+}
+
+function ensureTrailingNewline(value: string): string {
+  return value.endsWith("\n") ? value : `${value}\n`;
 }
 
 export async function uninstallLazyCodex(input: {
@@ -629,6 +995,10 @@ function unique(values: readonly string[]): string[] {
   return [...new Set(values)];
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 async function readTextIfExists(path: string): Promise<string | null> {
   try {
     return await readFile(path, "utf8");
@@ -636,6 +1006,11 @@ async function readTextIfExists(path: string): Promise<string | null> {
     if (isNodeErrorWithCode(error, "ENOENT")) return null;
     throw error;
   }
+}
+
+async function writeJsonFile(path: string, value: unknown): Promise<void> {
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, `${JSON.stringify(value, null, 2)}\n`);
 }
 
 async function lstatIfExists(path: string): Promise<Awaited<ReturnType<typeof lstat>> | null> {
@@ -664,9 +1039,9 @@ function shouldCopyRuntimePath(path: string, root: string): boolean {
 async function assertRuntimeRoot(runtimeRoot: string): Promise<void> {
   const required = [
     "package.json",
-    "packages/omo-codex/scripts/install-local.mjs",
-    "packages/omo-codex/scripts/install-dist/install-local.mjs",
-    "packages/omo-codex/plugin/.codex-plugin/plugin.json"
+    "packages/omo-codex/marketplace.json",
+    "packages/omo-codex/plugin/.codex-plugin/plugin.json",
+    "packages/omo-codex/plugin/.mcp.json"
   ];
   const missing: string[] = [];
   for (const file of required) {

@@ -2,14 +2,7 @@
   "name": "lazycodex-ai-lite",
   "version": "4.14.0",
   "type": "module",
-  "bin": {
-    "lazycodex-ai-lite": "packages/omo-codex/scripts/install-local.mjs",
-    "lazycodex-ai": "packages/omo-codex/scripts/install-local.mjs",
-    "lazycodex": "packages/omo-codex/scripts/install-local.mjs"
-  },
   "files": [
-    "packages/omo-codex/scripts/install-local.mjs",
-    "packages/omo-codex/scripts/install-dist",
     "packages/omo-codex/plugin",
     "packages/omo-codex/marketplace.json"
   ],

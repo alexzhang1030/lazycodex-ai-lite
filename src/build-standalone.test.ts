@@ -59,30 +59,16 @@ describe("buildStandalonePackage", () => {
     expect(packageJson.name).toBe("lazycodex-ai-lite");
     expect(packageJson.version).toBe("9.9.9");
     expect(packageJson.files).toEqual([
-      "packages/omo-codex/scripts/install-local.mjs",
-      "packages/omo-codex/scripts/install-dist",
       "packages/omo-codex/plugin",
       "packages/omo-codex/marketplace.json"
     ]);
-
-    const pluginPackage = await readJson<Record<string, unknown>>(join(outDir, "packages/omo-codex/plugin/package.json"));
-    expect(pluginPackage.workspaces).toEqual([]);
-    expect(pluginPackage.dependencies).toEqual({});
-    expect(pluginPackage.scripts).toEqual({});
+    expect(packageJson).not.toHaveProperty("bin");
 
     const pluginManifest = await readJson<{ readonly hooks: readonly string[] }>(join(outDir, "packages/omo-codex/plugin/.codex-plugin/plugin.json"));
     expect(pluginManifest.hooks).toEqual(coreHookPaths);
 
     const mcpManifest = await readJson<Record<string, unknown>>(join(outDir, "packages/omo-codex/plugin/.mcp.json"));
     expect(mcpManifest).toEqual({ mcpServers: {} });
-
-    const lockfile = await readJson<Record<string, unknown>>(join(outDir, "packages/omo-codex/plugin/package-lock.json"));
-    expect(lockfile.lockfileVersion).toBe(3);
-
-    const installer = await readFile(join(outDir, "packages/omo-codex/scripts/install-dist/install-local.mjs"), "utf8");
-    expect(installer).toContain('"lazycodex-ai-lite"');
-    expect(installer).toContain("removeTomlSections(nextConfig");
-    expect(installer.includes('ensurePluginMcpEnabled(nextConfig, "omo@sisyphuslabs", "context7"')).toBe(false);
 
     const manifest = await readJson<{ readonly strategy: string; readonly features: { readonly optional: readonly string[] } }>(join(outDir, "lazycodex-standalone.json"));
     expect(manifest.strategy).toBe("prebuilt-plugin-payload");
@@ -93,6 +79,7 @@ describe("buildStandalonePackage", () => {
     expect(await listFileNames(join(outDir, "packages/omo-codex/plugin/hooks"))).toEqual(coreHookPaths.map((hook) => hook.slice("./hooks/".length)).sort());
 
     expect(await exists(join(outDir, "packages/omo-codex/plugin/components/ultrawork/dist/cli.js"))).toBe(true);
+    expect(await exists(join(outDir, "packages/omo-codex/plugin/components/ultrawork/directive.md"))).toBe(true);
     expect(await exists(join(outDir, "packages/omo-codex/plugin/components/ultrawork/agents/explorer.toml"))).toBe(true);
     expect(await exists(join(outDir, "packages/omo-codex/plugin/components/ultrawork/src/index.ts"))).toBe(false);
     expect(await exists(join(outDir, "packages/omo-codex/plugin/components/ultrawork/test/cli.test.ts"))).toBe(false);
@@ -100,11 +87,25 @@ describe("buildStandalonePackage", () => {
     expect(await exists(join(outDir, "packages/omo-codex/plugin/components/ultrawork/scripts/build.test.mjs"))).toBe(false);
     expect(await exists(join(outDir, "packages/omo-codex/plugin/components/ultrawork/scripts/build.mjs"))).toBe(false);
     expect(await exists(join(outDir, "packages/omo-codex/plugin/components/ultrawork/.github/workflows/ci.yml"))).toBe(false);
+    expect(await exists(join(outDir, "packages/omo-codex/plugin/components/ultrawork/README.md"))).toBe(false);
+    expect(await exists(join(outDir, "packages/omo-codex/plugin/components/ultrawork/LICENSE"))).toBe(false);
+    expect(await exists(join(outDir, "packages/omo-codex/plugin/components/ultrawork/NOTICE"))).toBe(false);
+    expect(await exists(join(outDir, "packages/omo-codex/plugin/components/ultrawork/package.json"))).toBe(false);
+    expect(await exists(join(outDir, "packages/omo-codex/plugin/components/ultrawork/skills/ulw-plan/SKILL.md"))).toBe(false);
+    expect(await exists(join(outDir, "packages/omo-codex/plugin/components/ulw-loop/directive.md"))).toBe(true);
+    expect(await exists(join(outDir, "packages/omo-codex/plugin/components/ulw-loop/skills/ulw-loop/SKILL.md"))).toBe(false);
+    expect(await exists(join(outDir, "packages/omo-codex/plugin/components/bootstrap/scripts/node-dispatch.ps1"))).toBe(true);
+    expect(await exists(join(outDir, "packages/omo-codex/plugin/components/bootstrap/dist/cli.js"))).toBe(false);
+    expect(await exists(join(outDir, "packages/omo-codex/plugin/components/bootstrap/scripts/bootstrap.ps1"))).toBe(false);
     expect(await exists(join(outDir, "packages/omo-codex/plugin/components/teammode/dist/cli.js"))).toBe(false);
     expect(await exists(join(outDir, "packages/omo-codex/plugin/components/lazycodex-executor-verify/dist/cli.js"))).toBe(false);
     expect(await exists(join(outDir, "packages/omo-codex/plugin/skills/ulw-research/SKILL.md"))).toBe(false);
-    expect(await exists(join(outDir, "packages/omo-codex/plugin/scripts/migrate-omo-sot.mjs"))).toBe(true);
-    expect(await exists(join(outDir, "packages/omo-codex/plugin/scripts/migrate-omo-sot/editor.mjs"))).toBe(true);
+    expect(await exists(join(outDir, "packages/omo-codex/scripts/install-local.mjs"))).toBe(false);
+    expect(await exists(join(outDir, "packages/omo-codex/scripts/install-dist/install-local.mjs"))).toBe(false);
+    expect(await exists(join(outDir, "packages/omo-codex/plugin/package.json"))).toBe(false);
+    expect(await exists(join(outDir, "packages/omo-codex/plugin/package-lock.json"))).toBe(false);
+    expect(await exists(join(outDir, "packages/omo-codex/plugin/scripts/migrate-omo-sot.mjs"))).toBe(false);
+    expect(await exists(join(outDir, "packages/omo-codex/plugin/scripts/migrate-omo-sot/editor.mjs"))).toBe(false);
     expect(await exists(join(outDir, "packages/omo-codex/plugin/scripts/auto-update.mjs"))).toBe(false);
     expect(await exists(join(outDir, "packages/git-bash-mcp/dist/cli.js"))).toBe(false);
     expect(await exists(join(outDir, "packages/lsp-daemon/dist/cli.js"))).toBe(false);
@@ -239,11 +240,18 @@ async function writeComponent(sourceRoot: string, component: string): Promise<vo
   await writeJson(join(componentRoot, "package.json"), { name: component, version: "1.2.3" });
   await writeText(join(componentRoot, "dist/cli.js"), `console.log('${component}');\n`);
   await writeText(join(componentRoot, "dist/cli.d.ts"), "export {};\n");
+  await writeText(join(componentRoot, "README.md"), `${component}\n`);
+  await writeText(join(componentRoot, "LICENSE"), "MIT\n");
+  await writeText(join(componentRoot, "NOTICE"), "notice\n");
+  await writeText(join(componentRoot, "directive.md"), `# ${component} directive\n`);
   await writeText(join(componentRoot, "src/index.ts"), "export {};\n");
   await writeText(join(componentRoot, "test/cli.test.ts"), "export {};\n");
   await writeText(join(componentRoot, "scripts/bootstrap.ps1"), "Write-Output component\n");
+  await writeText(join(componentRoot, "scripts/node-dispatch.ps1"), "node $args\n");
   await writeText(join(componentRoot, "scripts/build.test.mjs"), "export {};\n");
   await writeText(join(componentRoot, "scripts/build.mjs"), "export {};\n");
+  await writeText(join(componentRoot, "skills/ulw-plan/SKILL.md"), "---\nname: ulw-plan\n---\n");
+  await writeText(join(componentRoot, "skills/ulw-loop/SKILL.md"), "---\nname: ulw-loop\n---\n");
   await writeText(join(componentRoot, ".github/workflows/ci.yml"), "name: ci\n");
   await writeText(join(componentRoot, "tsconfig.json"), "{}\n");
 }

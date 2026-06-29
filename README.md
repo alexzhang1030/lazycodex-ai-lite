@@ -40,7 +40,7 @@ omo status
 |------|------------|---------------|
 | `omo@sisyphuslabs` | Codex marketplace plugin id. Codex loads hooks, skills, and bundled agents from this plugin. | Installed into `CODEX_HOME/plugins/cache/sisyphuslabs/omo/<version>/`. |
 | `omo` | Lightweight local CLI wrapper written by this repo. It only exposes LazyCodex runtime commands. | `omo install`, `omo uninstall`, `omo status`, `omo ulw-loop --help`. |
-| `runtime/package/` | Prebuilt LazyCodex runtime payload extracted from OMO Codex Light. | Used by `bin/lazycodex-ai-lite.js install`. |
+| `runtime/package/` | Prebuilt LazyCodex plugin payload extracted from OMO Codex Light. | Materialized into `CODEX_HOME/runtime/lazycodex-ai-lite-package`. |
 | `ultrawork agents` | Codex subagent TOML files copied into `CODEX_HOME/agents/`. | Prompt Codex with `ultrawork ...`; Codex can route work to these agents. |
 | `ulw-plan` | Planning skill for durable Ultrawork plans. | Prompt `ulw-plan ...` or use it through Ultrawork-triggered flows. |
 | `ulw-loop` | Loop/goal runtime and CLI. | `omo ulw-loop --help`. |
@@ -168,14 +168,19 @@ GitHub Actions:
 
 The extractor keeps this runtime surface:
 
-- `packages/omo-codex/scripts/install-local.mjs`
-- `packages/omo-codex/scripts/install-dist/`
 - `packages/omo-codex/marketplace.json`
 - `packages/omo-codex/plugin/`
+  - `.codex-plugin/plugin.json`
+  - `.mcp.json`
+  - top-level selected hooks
+  - `components/bootstrap/scripts/node-dispatch.ps1`
+  - `components/ultrawork/{dist,agents,directive.md}`
+  - `components/ulw-loop/{dist,directive.md}`
+  - top-level selected skills
 
-The full upstream `dist/cli` and `dist/cli-node` bundles are intentionally excluded. This repo ships the lightweight Node executor as the only outer CLI.
+The lite executor performs install/uninstall directly: it copies the plugin cache, writes the local marketplace snapshot, trusts the selected hooks, installs bundled agents, and links `omo-ultrawork` / `omo-ulw-loop`.
 
-The extractor rewrites package metadata and records the selected feature set in `lazycodex-standalone.json`.
+The default runtime payload is about 572 KB on the current build. The extractor records the selected feature set in `lazycodex-standalone.json`.
 
 ## Credits
 
