@@ -126,7 +126,7 @@ Launch ALL 5 in a single turn. Every agent uses `run_in_background=true`. No seq
 
 **Oracle agents receive everything in the prompt** (they cannot read files or run commands). Include DIFF + FILE_CONTENTS + all context directly in the prompt text.
 
-**unspecified-high agents are autonomous** - they can read files, run commands, and use tools. Give them goals and pointers, not raw content dumps.
+**unspecified-high agents are self-directed** - they can read files, run commands, and use tools. Give them goals and pointers, not raw content dumps.
 
 ---
 

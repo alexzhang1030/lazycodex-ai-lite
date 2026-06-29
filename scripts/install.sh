@@ -38,7 +38,7 @@ fi
 
 tar -xzf "$TMP_DIR/$ASSET" -C "$TMP_DIR"
 if [ "$#" -eq 0 ]; then
-  node "$TMP_DIR/package/bin/lazycodex-ai-lite.js" install -- install --no-tui --codex-autonomous
+  node "$TMP_DIR/package/bin/lazycodex-ai-lite.js" install -- install --no-tui --codex-auto
 else
   node "$TMP_DIR/package/bin/lazycodex-ai-lite.js" "$@"
 fi

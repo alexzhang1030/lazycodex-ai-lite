@@ -101,8 +101,6 @@ describe("buildStandalonePackage", () => {
     const ulwLoopCli = await readFile(join(outDir, "packages/lazycodex/plugin/components/ulw-loop/dist/cli.js"), "utf8");
     expect(ulwLoopCli).toContain("lazycodex ulw-loop");
     expect(ulwLoopCli).toContain(".lazycodex/ulw-loop");
-    expect(ulwLoopCli).not.toContain(".omo/ulw-loop");
-    expect(ulwLoopCli).not.toContain("omo\\.ulw-loop");
     expect(await exists(join(outDir, "packages/lazycodex/plugin/components/ulw-loop/skills/ulw-loop/SKILL.md"))).toBe(false);
     expect(await exists(join(outDir, "packages/lazycodex/plugin/components/bootstrap/scripts/node-dispatch.ps1"))).toBe(true);
     expect(await exists(join(outDir, "packages/lazycodex/plugin/components/bootstrap/dist/cli.js"))).toBe(false);
@@ -114,8 +112,8 @@ describe("buildStandalonePackage", () => {
     expect(await exists(join(outDir, "packages/lazycodex/scripts/install-dist/install-local.mjs"))).toBe(false);
     expect(await exists(join(outDir, "packages/lazycodex/plugin/package.json"))).toBe(false);
     expect(await exists(join(outDir, "packages/lazycodex/plugin/package-lock.json"))).toBe(false);
-    expect(await exists(join(outDir, "packages/lazycodex/plugin/scripts/migrate-omo-sot.mjs"))).toBe(false);
-    expect(await exists(join(outDir, "packages/lazycodex/plugin/scripts/migrate-omo-sot/editor.mjs"))).toBe(false);
+    expect(await exists(join(outDir, "packages/lazycodex/plugin/scripts/migrate-lazycodex-sot.mjs"))).toBe(false);
+    expect(await exists(join(outDir, "packages/lazycodex/plugin/scripts/migrate-lazycodex-sot/editor.mjs"))).toBe(false);
     expect(await exists(join(outDir, "packages/lazycodex/plugin/scripts/auto-update.mjs"))).toBe(false);
     expect(await exists(join(outDir, "packages/git-bash-mcp/dist/cli.js"))).toBe(false);
     expect(await exists(join(outDir, "packages/lsp-daemon/dist/cli.js"))).toBe(false);
@@ -164,22 +162,22 @@ describe("buildStandalonePackage", () => {
 });
 
 async function createFakeSource(sourceRoot: string): Promise<void> {
-  await writeJson(join(sourceRoot, "package.json"), { name: "oh-my-openagent", version: "1.2.3" });
-  await writeJson(join(sourceRoot, "packages/omo-codex/marketplace.json"), {
+  await writeJson(join(sourceRoot, "package.json"), { name: "lazycodex-runtime-source", version: "1.2.3" });
+  await writeJson(join(sourceRoot, "marketplace.json"), {
     name: "sisyphuslabs",
-    plugins: [{ name: "omo", source: "./plugins/omo" }]
+    plugins: [{ name: "lazycodex", source: "./plugins/lazycodex" }]
   });
-  await writeText(join(sourceRoot, "packages/omo-codex/scripts/install-local.mjs"), "#!/usr/bin/env node\n");
+  await writeText(join(sourceRoot, "scripts/install-local.mjs"), "#!/usr/bin/env node\n");
   await writeText(
-    join(sourceRoot, "packages/omo-codex/scripts/install-dist/install-local.mjs"),
+    join(sourceRoot, "scripts/install-dist/install-local.mjs"),
     [
       'var PACKAGED_CODEX_INSTALLER_NAMES = new Set([',
       '  "lazycodex-ai",',
-      '  "oh-my-openagent"',
+      '  "lazycodex-ai-lite"',
       ']);',
-      'function ensureOmoBuiltinMcpPolicies(config, input) {',
+      'function ensureLazyCodexBuiltinMcpPolicies(config, input) {',
       '  let nextConfig = config;',
-      '  nextConfig = ensurePluginMcpEnabled(nextConfig, "omo@sisyphuslabs", "context7", true);',
+      '  nextConfig = ensurePluginMcpEnabled(nextConfig, "lazycodex@sisyphuslabs", "context7", true);',
       '  return nextConfig;',
       '}',
       'function ensureHookTrusted(config, state) {',
@@ -188,8 +186,8 @@ async function createFakeSource(sourceRoot: string): Promise<void> {
       ''
     ].join("\n")
   );
-  await writeJson(join(sourceRoot, "packages/omo-codex/plugin/.codex-plugin/plugin.json"), {
-    name: "omo",
+  await writeJson(join(sourceRoot, "plugin/.codex-plugin/plugin.json"), {
+    name: "lazycodex",
     version: "1.2.3",
     hooks: [
       "./hooks/session-start-loading-project-rules.json",
@@ -197,33 +195,33 @@ async function createFakeSource(sourceRoot: string): Promise<void> {
       ...optionalHookPaths
     ],
     mcpServers: "./.mcp.json",
-    interface: { displayName: "OMO" }
+    interface: { displayName: "LazyCodex" }
   });
-  await writeJson(join(sourceRoot, "packages/omo-codex/plugin/package.json"), {
-    name: "@sisyphuslabs/omo-codex-plugin",
+  await writeJson(join(sourceRoot, "plugin/package.json"), {
+    name: "@sisyphuslabs/lazycodex-plugin",
     version: "1.2.3",
     type: "module",
     workspaces: ["components/ultrawork"],
     scripts: { build: "node build.js", "sync:skills": "node scripts/sync-skills.mjs" },
     dependencies: { "@oh-my-opencode/shared-skills": "file:../../shared-skills" }
   });
-  await writeJson(join(sourceRoot, "packages/omo-codex/plugin/package-lock.json"), {
-    name: "@sisyphuslabs/omo-codex-plugin",
+  await writeJson(join(sourceRoot, "plugin/package-lock.json"), {
+    name: "@sisyphuslabs/lazycodex-plugin",
     lockfileVersion: 3,
     packages: {}
   });
-  await writeJson(join(sourceRoot, "packages/omo-codex/plugin/.mcp.json"), {
+  await writeJson(join(sourceRoot, "plugin/.mcp.json"), {
     mcpServers: {
       git_bash: { command: "node", args: ["../../git-bash-mcp/dist/cli.js", "mcp"] },
       lsp: { command: "node", args: ["../../lsp-daemon/dist/cli.js", "mcp"] }
     }
   });
 
-  await writeText(join(sourceRoot, "packages/omo-codex/plugin/scripts/auto-update.mjs"), "export {};\n");
-  await writeText(join(sourceRoot, "packages/omo-codex/plugin/scripts/migrate-omo-sot.mjs"), "import \"./migrate-omo-sot/editor.mjs\";\n");
-  await writeText(join(sourceRoot, "packages/omo-codex/plugin/scripts/migrate-omo-sot/editor.mjs"), "export {};\n");
-  await writeText(join(sourceRoot, "packages/omo-codex/plugin/shared/src/index.ts"), "export {};\n");
-  await writeJson(join(sourceRoot, "packages/omo-codex/plugin/model-catalog.json"), { models: [] });
+  await writeText(join(sourceRoot, "plugin/scripts/auto-update.mjs"), "export {};\n");
+  await writeText(join(sourceRoot, "plugin/scripts/migrate-lazycodex-sot.mjs"), "import \"./migrate-lazycodex-sot/editor.mjs\";\n");
+  await writeText(join(sourceRoot, "plugin/scripts/migrate-lazycodex-sot/editor.mjs"), "export {};\n");
+  await writeText(join(sourceRoot, "plugin/shared/src/index.ts"), "export {};\n");
+  await writeJson(join(sourceRoot, "plugin/model-catalog.json"), { models: [] });
 
   const allHookFiles = [
     "session-start-loading-project-rules.json",
@@ -231,27 +229,27 @@ async function createFakeSource(sourceRoot: string): Promise<void> {
     ...optionalHookPaths.map((hook) => hook.slice("./hooks/".length))
   ];
   for (const hook of allHookFiles) {
-    await writeText(join(sourceRoot, "packages/omo-codex/plugin/hooks", hook), "{}\n");
+    await writeText(join(sourceRoot, "plugin/hooks", hook), "{}\n");
   }
 
   for (const component of ["bootstrap", "ultrawork", "ulw-loop", "teammode", "lazycodex-executor-verify", "lsp"]) {
     await writeComponent(sourceRoot, component);
   }
-  await writeText(join(sourceRoot, "packages/omo-codex/plugin/components/ultrawork/agents/explorer.toml"), 'name = "explorer"\n');
+  await writeText(join(sourceRoot, "plugin/components/ultrawork/agents/explorer.toml"), 'name = "explorer"\n');
 
   for (const skill of ["ulw-plan", "ulw-loop", "review-work", "ulw-research", "teammode", "ast-grep", "rules"]) {
-    await writeText(join(sourceRoot, "packages/omo-codex/plugin/skills", skill, "SKILL.md"), `---\nname: ${skill}\n---\n`);
+    await writeText(join(sourceRoot, "plugin/skills", skill, "SKILL.md"), `---\nname: ${skill}\n---\n`);
   }
-  await writeText(join(sourceRoot, "packages/omo-codex/plugin/skills/ulw-plan/tests/sample.txt"), "test fixture\n");
+  await writeText(join(sourceRoot, "plugin/skills/ulw-plan/tests/sample.txt"), "test fixture\n");
 }
 
 async function writeComponent(sourceRoot: string, component: string): Promise<void> {
-  const componentRoot = join(sourceRoot, "packages/omo-codex/plugin/components", component);
+  const componentRoot = join(sourceRoot, "plugin/components", component);
   await writeJson(join(componentRoot, "package.json"), { name: component, version: "1.2.3" });
   const cliSource = component === "ulw-loop"
-    ? "console.log('omo ulw-loop'); console.log('[omo] unknown command'); console.log('.omo/ulw-loop'); console.log('|omo\\\\.ulw-loop\\\\.steer');\n"
+    ? "console.log('lazycodex ulw-loop'); console.log('[lazycodex] unknown command'); console.log('.lazycodex/ulw-loop');\n"
     : component === "ultrawork"
-      ? "console.log('omo-ultrawork hook user-prompt-submit');\n"
+      ? "console.log('lazycodex-ultrawork hook user-prompt-submit');\n"
       : `console.log('${component}');\n`;
   await writeText(join(componentRoot, "dist/cli.js"), cliSource);
   await writeText(join(componentRoot, "dist/cli.d.ts"), "export {};\n");

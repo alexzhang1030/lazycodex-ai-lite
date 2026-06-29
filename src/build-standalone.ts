@@ -29,14 +29,14 @@ interface FeatureSelection {
 }
 
 const copyEntries: readonly CopyEntry[] = [
-  { from: "packages/omo-codex/marketplace.json", to: "packages/lazycodex/marketplace.json" },
-  { from: "packages/omo-codex/plugin", to: "packages/lazycodex/plugin" }
+  { from: "marketplace.json", to: "packages/lazycodex/marketplace.json" },
+  { from: "plugin", to: "packages/lazycodex/plugin" }
 ];
 
 const requiredFiles = [
-  "packages/omo-codex/marketplace.json",
-  "packages/omo-codex/plugin/.codex-plugin/plugin.json",
-  "packages/omo-codex/plugin/.mcp.json"
+  "marketplace.json",
+  "plugin/.codex-plugin/plugin.json",
+  "plugin/.mcp.json"
 ] as const;
 
 const coreFeatureDefinition = {
@@ -161,10 +161,10 @@ async function assertRequiredSourceFiles(sourceRoot: string): Promise<void> {
 async function assertFeatureSourceFiles(sourceRoot: string, selection: FeatureSelection): Promise<void> {
   const files = [
     ...[...selection.components].map((component) => component === "bootstrap"
-      ? "packages/omo-codex/plugin/components/bootstrap/scripts/node-dispatch.ps1"
-      : `packages/omo-codex/plugin/components/${component}/dist/cli.js`),
-    ...[...selection.hooks].map((hook) => `packages/omo-codex/plugin/hooks/${hook}`),
-    ...[...selection.skills].map((skill) => `packages/omo-codex/plugin/skills/${skill}/SKILL.md`)
+      ? "plugin/components/bootstrap/scripts/node-dispatch.ps1"
+      : `plugin/components/${component}/dist/cli.js`),
+    ...[...selection.hooks].map((hook) => `plugin/hooks/${hook}`),
+    ...[...selection.skills].map((skill) => `plugin/skills/${skill}/SKILL.md`)
   ];
   await assertFilesExist(sourceRoot, files, "Missing selected runtime artifacts:");
 }
@@ -208,84 +208,10 @@ async function filterCodexPluginPayload(pluginRoot: string, selection: FeatureSe
   await pruneDirectoryChildren(pluginRoot, allowedPluginRootEntries);
   await pruneDirectoryChildren(join(pluginRoot, "components"), selection.components);
   await trimSelectedComponentPayloads(pluginRoot, selection);
-  await patchSelectedComponentCliBranding(pluginRoot);
   await pruneDirectoryChildren(join(pluginRoot, "hooks"), selection.hooks);
   await pruneDirectoryChildren(join(pluginRoot, "skills"), selection.skills);
   await writeJson(join(pluginRoot, ".mcp.json"), { mcpServers: {} });
   await rewritePluginManifest(pluginRoot, selection, version);
-}
-
-async function patchSelectedComponentCliBranding(pluginRoot: string): Promise<void> {
-  const files = await findTextPayloadFiles(pluginRoot);
-  for (const file of files) {
-    if (!await exists(file)) continue;
-    const current = await readFile(file, "utf8");
-    const next = current
-      .replaceAll("(OmO)", "(LazyCodex)")
-      .replaceAll("OMO_ULW_LOOP_SESSION_ID", "LAZYCODEX_ULW_LOOP_SESSION_ID")
-      .replaceAll("OMO_ULW_LOOP_STEER", "LAZYCODEX_ULW_LOOP_STEER")
-      .replaceAll("OMO installs", "LazyCodex installs")
-      .replaceAll("OMO goal", "LazyCodex goal")
-      .replaceAll("OMO goals", "LazyCodex goals")
-      .replaceAll("OMO G001", "LazyCodex G001")
-      .replaceAll("OMO G002", "LazyCodex G002")
-      .replaceAll("OMO story", "LazyCodex story")
-      .replaceAll("OMO ledger", "LazyCodex ledger")
-      .replaceAll("omo-ultrawork", "lazycodex-ultrawork")
-      .replaceAll("omo-ulw-loop", "lazycodex-ulw-loop")
-      .replaceAll("omo ulw-loop", "lazycodex ulw-loop")
-      .replaceAll("omo hook", "lazycodex hook")
-      .replaceAll("omo help", "lazycodex help")
-      .replaceAll("omo.ulw-loop", "lazycodex.ulw-loop")
-      .replaceAll("command -v omo", "command -v lazycodex")
-      .replaceAll("ULW_LOOP_CLI=omo", "ULW_LOOP_CLI=lazycodex")
-      .replaceAll("$HOME/.local/bin/omo", "$HOME/.local/bin/lazycodex")
-      .replaceAll("$CODEX_HOME/bin/omo", "$CODEX_HOME/bin/lazycodex")
-      .replaceAll("sisyphuslabs/omo", "sisyphuslabs/lazycodex")
-      .replaceAll("packages/omo-codex", "packages/lazycodex")
-      .replaceAll("packages/omo-opencode/src/hooks/prometheus-md-only/path-policy.ts", "the upstream plan path policy")
-      .replaceAll("call_omo_agent", "opencode_delegate_agent")
-      .replaceAll("omo harnesses", "LazyCodex harnesses")
-      .replaceAll("omoRoot", "lazycodexRoot")
-      .replaceAll("omoReal", "lazycodexReal")
-      .replaceAll(".omo", ".lazycodex")
-      .replaceAll("|omo\\.ulw-loop\\.steer", "")
-      .replaceAll("PATH omo", "PATH lazycodex")
-      .replaceAll("No ulw-loop-capable omo executable", "No ulw-loop-capable lazycodex executable")
-      .replaceAll("If `omo` is absent", "If `lazycodex` is absent")
-      .replaceAll("omo() { \"$ULW_LOOP_NODE\" \"$ULW_LOOP_CLI\" \"$@\"; }", "lazycodex() { \"$ULW_LOOP_NODE\" \"$ULW_LOOP_CLI\" \"$@\"; }")
-      .replaceAll("`omo sparkshell cat ", "`cat ")
-      .replaceAll("omo sparkshell cat ", "cat ")
-      .replaceAll("`omo sparkshell rg --files`", "`rg --files`")
-      .replaceAll("`omo sparkshell 'rg --files'`", "`rg --files`")
-      .replaceAll("omo sparkshell 'rg --files'", "rg --files")
-      .replaceAll("omo sparkshell rg --files", "rg --files")
-      .replaceAll("`omo sparkshell <command> [args...]`", "direct shell commands")
-      .replaceAll("omo sparkshell <command> [args...]", "direct shell commands")
-      .replaceAll("omo sparkshell --shell", "shell")
-      .replaceAll("omo sparkshell --tmux-pane", "tmux capture-pane")
-      .replaceAll("[omo]", "[lazycodex]");
-    if (next !== current) await writeFile(file, next);
-  }
-}
-
-async function findTextPayloadFiles(root: string): Promise<string[]> {
-  const extensions = new Set([".js", ".json", ".md", ".mjs", ".toml", ".yaml", ".yml"]);
-  const files: string[] = [];
-  for (const extension of extensions) files.push(...await findFilesByExtension(root, extension));
-  return [...new Set(files)].sort();
-}
-
-async function findFilesByExtension(root: string, extension: string): Promise<string[]> {
-  if (!await exists(root)) return [];
-  const entries = await readdir(root, { withFileTypes: true });
-  const files: string[] = [];
-  for (const entry of entries) {
-    const path = join(root, entry.name);
-    if (entry.isDirectory()) files.push(...await findFilesByExtension(path, extension));
-    if (entry.isFile() && entry.name.endsWith(extension)) files.push(path);
-  }
-  return files.sort();
 }
 
 async function trimSelectedComponentPayloads(pluginRoot: string, selection: FeatureSelection): Promise<void> {

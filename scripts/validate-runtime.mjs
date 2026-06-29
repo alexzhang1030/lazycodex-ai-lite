@@ -31,7 +31,7 @@ const forbiddenFiles = [
   "packages/lazycodex/scripts/install-dist/install-local.mjs",
   "packages/lazycodex/plugin/package.json",
   "packages/lazycodex/plugin/package-lock.json",
-  "packages/lazycodex/plugin/scripts/migrate-omo-sot.mjs",
+  "packages/lazycodex/plugin/scripts/migrate-lazycodex-sot.mjs",
   "packages/lazycodex/plugin/components/bootstrap/dist/cli.js",
   "packages/lazycodex/plugin/components/bootstrap/scripts/bootstrap.ps1",
   "packages/lazycodex/plugin/components/ultrawork/README.md",

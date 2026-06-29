@@ -123,14 +123,14 @@ For an isolated install:
 ```bash
 CODEX_HOME=/tmp/codex-home \
 CODEX_LOCAL_BIN_DIR=/tmp/codex-bin \
-bin/lazycodex-ai-lite.js install -- install --no-tui --codex-autonomous
+bin/lazycodex-ai-lite.js install -- install --no-tui --codex-auto
 ```
 
 ## Commands
 
 ```bash
 # install bundled runtime into CODEX_HOME
-bin/lazycodex-ai-lite.js install -- install --no-tui --codex-autonomous
+bin/lazycodex-ai-lite.js install -- install --no-tui --codex-auto
 
 # inspect install state
 bin/lazycodex-ai-lite.js status --json
@@ -156,7 +156,7 @@ Install locked dev dependencies:
 bun install --frozen-lockfile
 ```
 
-Build the runtime from the sibling upstream source checkout:
+Build the runtime from a LazyCodex source payload at `runtime/source/lazycodex`:
 
 ```bash
 bun run build:runtime
@@ -172,19 +172,13 @@ Build selected optional packs:
 
 ```bash
 bun run src/build-standalone.ts \
-  --source ../oh-my-openagent \
+  --source /path/to/lazycodex-source \
   --out runtime/package \
   --name lazycodex-ai-lite \
   --optional=ulw-research,teammode,lazycodex-executor-verify
 ```
 
-The upstream source checkout needs generated Codex artifacts first:
-
-```bash
-cd /Users/alex/code/contribution/oh-my-openagent
-bun run build:codex-install
-bun run build:codex-plugin
-```
+The source payload root must contain `marketplace.json` and `plugin/`.
 
 Build the executor:
 

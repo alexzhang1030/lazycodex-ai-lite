@@ -36,7 +36,7 @@ jobs:
         run: |
           node bin/lazycodex-ai-lite.js version
           node bin/lazycodex-ai-lite.js materialize --out /tmp/lazycodex-ai-lite-runtime
-          test -f /tmp/lazycodex-ai-lite-runtime/packages/omo-codex/plugin/components/ulw-loop/dist/cli.js
+          test -f /tmp/lazycodex-ai-lite-runtime/packages/lazycodex/plugin/components/ulw-loop/dist/cli.js
 
       - name: Build release package
         run: bun run package:release

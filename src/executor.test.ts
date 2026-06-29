@@ -76,13 +76,13 @@ describe("parseExecutorArgs", () => {
 
 describe("parseInstallOptions", () => {
   test("accepts the installer-compatible Codex flags", () => {
-    expect(parseInstallOptions(["install", "--no-tui", "--platform=codex", "--codex-autonomous"])).toEqual({
+    expect(parseInstallOptions(["install", "--no-tui", "--platform=codex", "--codex-auto"])).toEqual({
       dryRun: false,
-      autonomousPermissions: true
+      autoPermissions: true
     });
-    expect(parseInstallOptions(["setup", "--skip-auth", "--platform", "codex", "--no-codex-autonomous", "--dry-run"])).toEqual({
+    expect(parseInstallOptions(["setup", "--skip-auth", "--platform", "codex", "--no-codex-auto", "--dry-run"])).toEqual({
       dryRun: true,
-      autonomousPermissions: false
+      autoPermissions: false
     });
   });
 
@@ -145,10 +145,10 @@ describe("removeLazyCodexConfig", () => {
       "[marketplaces.sisyphuslabs]",
       'source = "/tmp/cache"',
       "",
-      '[plugins."omo@sisyphuslabs"]',
+      '[plugins."lazycodex@sisyphuslabs"]',
       "enabled = true",
       "",
-      '[hooks.state."omo@sisyphuslabs:hooks/a.json:user_prompt_submit:0:0"]',
+      '[hooks.state."lazycodex@sisyphuslabs:hooks/a.json:user_prompt_submit:0:0"]',
       'trusted_hash = "sha256:abc"',
       "",
       "[agents.plan]",
@@ -199,7 +199,7 @@ describe("installLazyCodex", () => {
       codexHome,
       binDir,
       executorPath,
-      autonomousPermissions: true
+      autoPermissions: true
     });
 
     const pluginRoot = join(codexHome, "plugins/cache/sisyphuslabs/lazycodex/1.0.0");
@@ -243,7 +243,7 @@ describe("uninstallLazyCodex", () => {
         "[marketplaces.sisyphuslabs]",
         'source = "/tmp/cache"',
         "",
-        '[plugins."omo@sisyphuslabs"]',
+        '[plugins."lazycodex@sisyphuslabs"]',
         "enabled = true",
         "",
         "[agents.plan]",
@@ -251,14 +251,14 @@ describe("uninstallLazyCodex", () => {
         ""
       ].join("\n")
     );
-    await writeJson(join(codexHome, ".tmp/marketplaces/sisyphuslabs/plugins/omo/.installed-agents.json"), {
+    await writeJson(join(codexHome, ".tmp/marketplaces/sisyphuslabs/plugins/lazycodex/.installed-agents.json"), {
       agents: [join(codexHome, "agents", "plan.toml")]
     });
     await writeText(join(codexHome, "agents/plan.toml"), 'name = "plan"\n');
     await writeText(join(codexHome, "runtime/lazycodex-ai-lite-package/package.json"), "{}\n");
-    await writeText(join(codexHome, "plugins/cache/sisyphuslabs/omo/4.14.0/package.json"), "{}\n");
-    await writeText(join(binDir, "omo"), "#!/bin/sh\n# LAZYCODEX_AI_LITE_GENERATED_WRAPPER\n");
-    await writeText(join(binDir, "omo-ulw-loop"), "#!/bin/sh\n# OMO_GENERATED_RUNTIME_WRAPPER\n");
+    await writeText(join(codexHome, "plugins/cache/sisyphuslabs/lazycodex/4.14.0/package.json"), "{}\n");
+    await writeText(join(binDir, "lazycodex"), "#!/bin/sh\n# LAZYCODEX_AI_LITE_GENERATED_WRAPPER\n");
+    await writeText(join(binDir, "lazycodex-ulw-loop"), "#!/bin/sh\n# LAZYCODEX_COMPONENT_RUNTIME_WRAPPER\n");
 
     const report = await uninstallLazyCodex({ codexHome, binDir });
     const config = await readFile(join(codexHome, "config.toml"), "utf8");
@@ -266,7 +266,7 @@ describe("uninstallLazyCodex", () => {
     expect(config).not.toContain("sisyphuslabs");
     await expect(readFile(join(codexHome, "agents/plan.toml"), "utf8")).rejects.toThrow();
     await expect(readFile(join(codexHome, "runtime/lazycodex-ai-lite-package/package.json"), "utf8")).rejects.toThrow();
-    await expect(readFile(join(binDir, "omo"), "utf8")).rejects.toThrow();
+    await expect(readFile(join(binDir, "lazycodex"), "utf8")).rejects.toThrow();
   });
 
   test("reports install status", async () => {
@@ -302,7 +302,7 @@ async function createRuntime(runtimeRoot: string): Promise<void> {
               type: "command",
               command: 'node "${PLUGIN_ROOT}/components/ultrawork/dist/cli.js" hook user-prompt-submit',
               timeout: 5,
-              statusMessage: "(OmO) Checking Ultrawork Trigger"
+              statusMessage: "LazyCodex Checking Ultrawork Trigger"
             }
           ]
         }

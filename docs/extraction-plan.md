@@ -12,12 +12,12 @@ Create a standalone repo that carries the Codex Light runtime and a native execu
 
 ## Runtime Build
 
-`src/build-standalone.ts` copies a prebuilt subset from `../oh-my-openagent` into `runtime/package/`:
+`src/build-standalone.ts` copies a prebuilt LazyCodex source payload into `runtime/package/`:
 
-1. `packages/lazycodex` installer scripts and plugin payload
+1. `marketplace.json` and `plugin/`
 2. selected plugin components, hooks, and skills
 
-It rewrites package metadata to remove workspace install work from the copied plugin package and patches the generated installer bundle so `lazycodex-ai-lite` is treated as packaged layout. The full upstream `dist/cli` and `dist/cli-node` bundles stay out of the runtime; `dist/executor.mjs` is the only outer CLI runtime.
+It rewrites package metadata to remove workspace install work from the copied plugin package. The full source CLI bundles stay out of the runtime; `dist/executor.mjs` is the only outer CLI runtime.
 
 ## Executor Build
 

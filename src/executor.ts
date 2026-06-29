@@ -19,10 +19,9 @@ export interface ExecutorArgs {
 const ignoredRuntimeDirectoryNames = new Set([".git", "node_modules"]);
 const managedMarketplaceName = "sisyphuslabs";
 const managedPluginName = "lazycodex";
-const legacyManagedPluginNames = ["omo"] as const;
 const userCliName = "lazycodex";
 const liteWrapperMarker = "LAZYCODEX_AI_LITE_GENERATED_WRAPPER";
-const upstreamRuntimeWrapperMarker = "OMO_GENERATED_RUNTIME_WRAPPER";
+const componentWrapperMarker = "LAZYCODEX_COMPONENT_RUNTIME_WRAPPER";
 const managedAgentFallbackNames = [
   "explorer",
   "lazycodex-clone-fidelity-reviewer",
@@ -149,7 +148,7 @@ async function runInstall(args: ExecutorArgs): Promise<number> {
     packageRoot,
     codexHome: resolveCodexHome(),
     binDir: resolveCodexInstallerBinDir(),
-    autonomousPermissions: options.autonomousPermissions
+    autoPermissions: options.autoPermissions
   });
   console.log(`Installed 1 plugin from ${report.marketplaceName}.`);
   return 0;
@@ -285,20 +284,14 @@ async function installLiteCliEntrypoints(input: {
   const binDir = resolve(input.binDir ?? resolveCodexInstallerBinDir());
   await mkdir(binDir, { recursive: true });
   if (process.platform === "win32") {
-    await removeLegacyManagedBin(join(binDir, "omo.cmd"));
     await writeFile(join(binDir, "lazycodex.cmd"), windowsLiteWrapper(packageEntrypoint));
     await writeFile(join(binDir, "lazycodex-ai-lite.cmd"), windowsLiteWrapper(packageEntrypoint));
     return;
   }
-  await removeLegacyManagedBin(join(binDir, "omo"));
   await writeFile(join(binDir, "lazycodex"), posixLiteWrapper(packageEntrypoint));
   await writeFile(join(binDir, "lazycodex-ai-lite"), posixLiteWrapper(packageEntrypoint));
   await chmod(join(binDir, "lazycodex"), 0o755);
   await chmod(join(binDir, "lazycodex-ai-lite"), 0o755);
-}
-
-async function removeLegacyManagedBin(path: string): Promise<void> {
-  if (await isManagedBinPath(path)) await rm(path, { force: true });
 }
 
 async function resolveBuiltExecutorPath(): Promise<string> {
@@ -382,12 +375,12 @@ interface HookTrustState {
 
 interface InstallOptions {
   readonly dryRun: boolean;
-  readonly autonomousPermissions: boolean;
+  readonly autoPermissions: boolean;
 }
 
 export function parseInstallOptions(args: readonly string[]): InstallOptions {
   let dryRun = false;
-  let autonomousPermissions = true;
+  let autoPermissions = true;
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
     if (arg === "install" || arg === "setup" || arg === "--no-tui" || arg === "--skip-auth") continue;
@@ -395,12 +388,12 @@ export function parseInstallOptions(args: readonly string[]): InstallOptions {
       dryRun = true;
       continue;
     }
-    if (arg === "--codex-autonomous") {
-      autonomousPermissions = true;
+    if (arg === "--codex-auto") {
+      autoPermissions = true;
       continue;
     }
-    if (arg === "--no-codex-autonomous") {
-      autonomousPermissions = false;
+    if (arg === "--no-codex-auto") {
+      autoPermissions = false;
       continue;
     }
     if (arg === "--platform") {
@@ -416,14 +409,14 @@ export function parseInstallOptions(args: readonly string[]): InstallOptions {
     }
     throw new Error(`Unsupported install option: ${String(arg)}`);
   }
-  return { dryRun, autonomousPermissions };
+  return { dryRun, autoPermissions };
 }
 
 export async function installLazyCodex(input: {
   readonly packageRoot: string;
   readonly codexHome: string;
   readonly binDir: string;
-  readonly autonomousPermissions?: boolean;
+  readonly autoPermissions?: boolean;
   readonly executorPath?: string;
 }): Promise<InstallReport> {
   const packageRoot = resolve(input.packageRoot);
@@ -476,7 +469,7 @@ export async function installLazyCodex(input: {
     codexHome,
     agentPaths: installedAgents,
     hookTrustStates: await computeHookTrustStates(pluginRoot),
-    autonomousPermissions: input.autonomousPermissions !== false
+    autoPermissions: input.autoPermissions !== false
   });
   const changedConfig = config !== beforeConfig;
   await mkdir(dirname(configPath), { recursive: true });
@@ -559,7 +552,7 @@ async function installComponentBins(input: { readonly pluginRoot: string; readon
 }
 
 function windowsComponentWrapper(entrypoint: string): string {
-  return ["@echo off", `rem ${upstreamRuntimeWrapperMarker}`, `node "${entrypoint}" %*`, ""].join("\r\n");
+  return ["@echo off", `rem ${componentWrapperMarker}`, `node "${entrypoint}" %*`, ""].join("\r\n");
 }
 
 function applyCodexInstallConfig(input: {
@@ -567,10 +560,10 @@ function applyCodexInstallConfig(input: {
   readonly codexHome: string;
   readonly agentPaths: readonly string[];
   readonly hookTrustStates: readonly HookTrustState[];
-  readonly autonomousPermissions: boolean;
+  readonly autoPermissions: boolean;
 }): string {
   let config = input.config;
-  if (input.autonomousPermissions) {
+  if (input.autoPermissions) {
     config = ensureRootTomlSetting(config, "approval_policy", tomlString("never"));
     config = ensureRootTomlSetting(config, "sandbox_mode", tomlString("danger-full-access"));
     config = ensureRootTomlSetting(config, "network_access", tomlString("enabled"));
@@ -808,10 +801,6 @@ export function removeLazyCodexConfig(config: string, agentNames: ReadonlySet<st
     if (header === `marketplaces.${managedMarketplaceName}`) return true;
     if (header === `plugins."${managedPluginName}@${managedMarketplaceName}"`) return true;
     if (header.startsWith(`hooks.state."${managedPluginName}@${managedMarketplaceName}:`)) return true;
-    for (const pluginName of legacyManagedPluginNames) {
-      if (header === `plugins."${pluginName}@${managedMarketplaceName}"`) return true;
-      if (header.startsWith(`hooks.state."${pluginName}@${managedMarketplaceName}:`)) return true;
-    }
     if (header === "features.multi_agent_v2") return true;
     if (!header.startsWith("agents.")) return false;
     return agentNames.has(parseTomlHeaderTail(header.slice("agents.".length)));
@@ -888,15 +877,9 @@ function includeLeadingLazyCodexComments(lines: readonly string[], start: number
 }
 
 async function discoverInstalledAgentPaths(codexHome: string): Promise<string[]> {
-  const legacyCacheManifests: string[] = [];
-  for (const pluginName of legacyManagedPluginNames) {
-    legacyCacheManifests.push(...await findFiles(join(codexHome, "plugins", "cache", managedMarketplaceName, pluginName), ".installed-agents.json", 3));
-  }
   const manifests = [
     join(codexHome, ".tmp", "marketplaces", managedMarketplaceName, "plugins", managedPluginName, ".installed-agents.json"),
-    ...legacyManagedPluginNames.map((pluginName) => join(codexHome, ".tmp", "marketplaces", managedMarketplaceName, "plugins", pluginName, ".installed-agents.json")),
-    ...await findFiles(join(codexHome, "plugins", "cache", managedMarketplaceName, managedPluginName), ".installed-agents.json", 3),
-    ...legacyCacheManifests
+    ...await findFiles(join(codexHome, "plugins", "cache", managedMarketplaceName, managedPluginName), ".installed-agents.json", 3)
   ];
   const paths: string[] = [];
   for (const manifest of manifests) {
@@ -929,8 +912,8 @@ async function findFiles(root: string, fileName: string, maxDepth: number): Prom
 
 async function managedBinPaths(binDir: string): Promise<string[]> {
   const names = process.platform === "win32"
-    ? ["lazycodex.cmd", "lazycodex-ai-lite.cmd", "lazycodex-ultrawork.cmd", "lazycodex-ulw-loop.cmd", "omo.cmd", "omo-ultrawork.cmd", "omo-ulw-loop.cmd"]
-    : ["lazycodex", "lazycodex-ai-lite", "lazycodex-ultrawork", "lazycodex-ulw-loop", "omo", "omo-ultrawork", "omo-ulw-loop"];
+    ? ["lazycodex.cmd", "lazycodex-ai-lite.cmd", "lazycodex-ultrawork.cmd", "lazycodex-ulw-loop.cmd"]
+    : ["lazycodex", "lazycodex-ai-lite", "lazycodex-ultrawork", "lazycodex-ulw-loop"];
   const paths: string[] = [];
   for (const name of names) {
     const path = join(binDir, name);
@@ -948,7 +931,7 @@ async function isManagedBinPath(path: string): Promise<boolean> {
   }
   if (!entry.isFile()) return false;
   const content = await readTextIfExists(path);
-  return content?.includes(liteWrapperMarker) === true || content?.includes(upstreamRuntimeWrapperMarker) === true;
+  return content?.includes(liteWrapperMarker) === true || content?.includes(componentWrapperMarker) === true;
 }
 
 async function removePathIfExists(path: string, dryRun: boolean): Promise<boolean> {

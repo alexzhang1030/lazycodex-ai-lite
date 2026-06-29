@@ -5,9 +5,9 @@
   "private": true,
   "description": "Standalone LazyCodex multi-agent runtime extractor and executor.",
   "scripts": {
-    "build": "bun run build:runtime && bun run build:executor",
-    "build:runtime": "bun run src/build-standalone.ts --source ../oh-my-openagent --out runtime/package --name lazycodex-ai-lite",
-    "build:runtime:all": "bun run src/build-standalone.ts --source ../oh-my-openagent --out runtime/package --name lazycodex-ai-lite --optional=all",
+    "build": "bun run build:executor && bun run validate:runtime",
+    "build:runtime": "bun run src/build-standalone.ts --source ./runtime/source/lazycodex --out runtime/package --name lazycodex-ai-lite",
+    "build:runtime:all": "bun run src/build-standalone.ts --source ./runtime/source/lazycodex --out runtime/package --name lazycodex-ai-lite --optional=all",
     "build:executor": "tsdown",
     "test": "bun test ./src/executor.test.ts ./src/build-standalone.test.ts",
     "ci": "bun run test && bun run build:executor && bun run validate:runtime",
