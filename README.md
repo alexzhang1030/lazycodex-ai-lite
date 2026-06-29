@@ -2,9 +2,28 @@
 
 Lightweight LazyCodex runtime for OpenAI Codex.
 
-This repository packages the useful LazyCodex pieces extracted from the upstream Codex Light runtime into a small GitHub Releases distribution. It ships a prebuilt Codex plugin payload plus a small Node executor built with `tsdown`.
+This repo packages the LazyCodex runtime pieces needed for Codex multi-agent work into a compact GitHub Releases distribution. It ships a prebuilt Codex plugin payload plus a small Node executor built from `src/executor.ts`.
 
-Distribution happens through GitHub Releases. The package registry stays unused.
+Distribution lives in GitHub Releases. The npm package registry is kept out of the release path.
+
+## Features
+
+- Installs the `lazycodex@sisyphuslabs` Codex plugin from a bundled runtime payload.
+- Adds Ultrawork agents for planning, execution, review, QA, and research-style lanes.
+- Adds `ulw-plan`, `ulw-loop`, and `review-work` skills to Codex.
+- Links local CLI entrypoints for `lazycodex`, `lazycodex-ai-lite`, `lazycodex-ultrawork`, and `lazycodex-ulw-loop`.
+- Provides install, uninstall, status, materialize, pack, and component dispatch commands.
+
+## Requirements
+
+- Node.js `>=25.9.0`
+- `curl` and `tar`
+- Codex with plugin support available in config
+
+For development:
+
+- Bun
+- Node.js `>=25.9.0`
 
 ## Quick Start
 
@@ -27,19 +46,98 @@ Check local state:
 lazycodex status
 ```
 
-Uninstall:
+Use the installed runtime in Codex:
+
+```text
+ultrawork: implement this change with a plan, evidence, and review.
+```
+
+Uninstall managed LazyCodex files:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/alexzhang1030/lazycodex-ai-lite/main/scripts/install.sh | sh -s -- uninstall
 ```
 
-## Requirements
+## Installer Options
 
-- Node.js `>=25.9.0`
-- `curl` and `tar`
-- Codex with plugin support enabled by config
+The installer downloads `lazycodex-ai-lite.tar.gz` from GitHub Releases, verifies `lazycodex-ai-lite.tar.gz.sha256` when `shasum` is available, extracts the package, and runs the bundled executor.
 
-The installer writes Codex config entries for plugin loading, plugin hooks, multi-agent support, child `AGENTS.md`, unified exec, and goals.
+Environment variables:
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `LAZYCODEX_AI_LITE_REPO` | GitHub repo used by `scripts/install.sh`. | `alexzhang1030/lazycodex-ai-lite` |
+| `LAZYCODEX_AI_LITE_VERSION` | Release tag to install. Use `latest` for the latest release asset. | `latest` |
+| `CODEX_HOME` | Codex home written by the installer. | `~/.codex` |
+| `CODEX_LOCAL_BIN_DIR` | Directory for local CLI wrappers. | `~/.local/bin` for default `CODEX_HOME`; `CODEX_HOME/bin` for custom `CODEX_HOME` |
+| `LAZYCODEX_AI_LITE_RUNTIME` | Runtime package path used by local executor commands. | auto-detected |
+
+Default install command executed by `scripts/install.sh`:
+
+```bash
+node package/bin/lazycodex-ai-lite.js install -- install --no-tui --codex-auto
+```
+
+`--codex-auto` writes Codex automation settings:
+
+```toml
+approval_policy = "never"
+sandbox_mode = "danger-full-access"
+network_access = "enabled"
+```
+
+Use `--no-codex-auto` to keep approval, sandbox, and network settings managed outside this installer:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/alexzhang1030/lazycodex-ai-lite/main/scripts/install.sh | \
+  sh -s -- install -- install --no-tui --no-codex-auto
+```
+
+Dry run:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/alexzhang1030/lazycodex-ai-lite/main/scripts/install.sh | \
+  sh -s -- install --dry-run
+```
+
+## Install Layout
+
+Default install writes these managed paths:
+
+```text
+CODEX_HOME/
++-- config.toml
++-- agents/
++-- runtime/lazycodex-ai-lite-package/
++-- plugins/cache/sisyphuslabs/lazycodex/<version>/
++-- plugins/cache/sisyphuslabs/.agents/plugins/marketplace.json
++-- .tmp/marketplaces/sisyphuslabs/
+```
+
+Local bin layout:
+
+```text
+~/.local/bin/lazycodex
+~/.local/bin/lazycodex-ai-lite
+~/.local/bin/lazycodex-ultrawork
+~/.local/bin/lazycodex-ulw-loop
+```
+
+For an isolated install:
+
+```bash
+CODEX_HOME=/tmp/codex-home \
+CODEX_LOCAL_BIN_DIR=/tmp/codex-bin \
+bin/lazycodex-ai-lite.js install -- install --no-tui --codex-auto
+```
+
+The installer enables these Codex config sections and settings:
+
+- `[features]` entries for plugins, plugin hooks, multi-agent support, child `AGENTS.md`, unified exec, and goals
+- `[marketplaces.sisyphuslabs]`
+- `[plugins."lazycodex@sisyphuslabs"]`
+- `[hooks.state."lazycodex@sisyphuslabs:..."]`
+- `[agents.<bundled-agent>]`
 
 ## What You Get
 
@@ -52,18 +150,49 @@ The installer writes Codex config entries for plugin loading, plugin hooks, mult
 | `ulw-loop` | Goal/loop runtime and steering hook. | `lazycodex ulw-loop --help` |
 | `review-work` | Review skill for completed work. | Prompt Codex with `review-work ...` |
 
-Use it in Codex by prompting with:
-
-```text
-ultrawork: implement this change with a plan, evidence, and review.
-```
-
 The installer also links component CLIs:
 
 ```bash
 lazycodex-ultrawork
 lazycodex-ulw-loop
 ```
+
+## Commands
+
+```bash
+# install bundled runtime into CODEX_HOME
+bin/lazycodex-ai-lite.js install -- install --no-tui --codex-auto
+
+# inspect install state
+bin/lazycodex-ai-lite.js status
+bin/lazycodex-ai-lite.js status --json
+
+# remove managed LazyCodex files and config entries
+bin/lazycodex-ai-lite.js uninstall
+bin/lazycodex-ai-lite.js uninstall --dry-run
+bin/lazycodex-ai-lite.js uninstall --dry-run --json
+
+# dispatch to bundled component CLIs after install
+lazycodex ulw-loop --help
+lazycodex ultrawork --help
+
+# print runtime package version
+bin/lazycodex-ai-lite.js version
+
+# copy runtime payload to a directory
+bin/lazycodex-ai-lite.js materialize --out /tmp/lazycodex-runtime
+
+# create an npm tarball from the runtime payload
+bin/lazycodex-ai-lite.js pack -- --pack-destination /tmp
+```
+
+Global executor options:
+
+| Option | Purpose |
+|--------|---------|
+| `--runtime <dir>` | Runtime package directory. |
+| `--out <dir>` | Materialized package directory. Install defaults to `CODEX_HOME/runtime/lazycodex-ai-lite-package`. |
+| `--keep-temp` | Preserve the temporary materialized runtime used by `pack`. |
 
 ## Runtime Profile
 
@@ -95,58 +224,6 @@ Optional packs supported by the extractor:
 - `ulw-research`
 - `teammode`
 - `lazycodex-executor-verify`
-
-## Install Layout
-
-Default install writes:
-
-```text
-CODEX_HOME/
-+-- config.toml
-+-- agents/
-+-- runtime/lazycodex-ai-lite-package/
-+-- plugins/cache/sisyphuslabs/lazycodex/<version>/
-+-- .tmp/marketplaces/sisyphuslabs/
-```
-
-Local bin layout:
-
-```text
-~/.local/bin/lazycodex
-~/.local/bin/lazycodex-ai-lite
-~/.local/bin/lazycodex-ultrawork
-~/.local/bin/lazycodex-ulw-loop
-```
-
-For an isolated install:
-
-```bash
-CODEX_HOME=/tmp/codex-home \
-CODEX_LOCAL_BIN_DIR=/tmp/codex-bin \
-bin/lazycodex-ai-lite.js install -- install --no-tui --codex-auto
-```
-
-## Commands
-
-```bash
-# install bundled runtime into CODEX_HOME
-bin/lazycodex-ai-lite.js install -- install --no-tui --codex-auto
-
-# inspect install state
-bin/lazycodex-ai-lite.js status --json
-
-# remove managed LazyCodex files and config entries
-bin/lazycodex-ai-lite.js uninstall
-
-# run the bundled ulw-loop CLI
-lazycodex ulw-loop --help
-
-# copy runtime payload to a directory
-bin/lazycodex-ai-lite.js materialize --out /tmp/lazycodex-runtime
-
-# create a package tarball from the runtime payload
-bin/lazycodex-ai-lite.js pack -- --pack-destination /tmp
-```
 
 ## Development
 
