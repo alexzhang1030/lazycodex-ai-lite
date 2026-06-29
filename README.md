@@ -8,7 +8,7 @@ Distribution lives in GitHub Releases. The npm package registry is kept out of t
 
 ## Features
 
-- Installs the `lazycodex@sisyphuslabs` Codex plugin from a bundled runtime payload.
+- Installs the `lazycodex` Codex plugin from the bundled `sisyphuslabs` marketplace payload.
 - Adds Ultrawork agents for planning, execution, review, QA, and research-style lanes.
 - Adds `ulw-plan`, `ulw-loop`, and `review-work` skills to Codex.
 - Links local CLI entrypoints for `lazycodex`, `lazycodex-ai-lite`, `lazycodex-ultrawork`, and `lazycodex-ulw-loop`.
@@ -143,8 +143,10 @@ The installer enables these Codex config sections and settings:
 
 | Item | Purpose | Location or command |
 |------|---------|---------------------|
-| `lazycodex@sisyphuslabs` | Codex marketplace plugin id loaded by Codex. | `CODEX_HOME/plugins/cache/sisyphuslabs/lazycodex/<version>/` |
-| `lazycodex` | Lightweight local CLI for LazyCodex runtime commands. | `lazycodex status`, `lazycodex uninstall`, `lazycodex ulw-loop --help` |
+| `lazycodex` | Codex plugin name from the bundled plugin manifest. | `CODEX_HOME/plugins/cache/sisyphuslabs/lazycodex/<version>/` |
+| `sisyphuslabs` | Local Codex marketplace name used by the installer. | `CODEX_HOME/plugins/cache/sisyphuslabs/` |
+| `[plugins."lazycodex@sisyphuslabs"]` | Codex config key that enables the installed plugin. | `CODEX_HOME/config.toml` |
+| `lazycodex` CLI | Lightweight local CLI for LazyCodex runtime commands. | `lazycodex status`, `lazycodex uninstall`, `lazycodex ulw-loop --help` |
 | `ultrawork agents` | Codex subagent TOML bundle for planning, execution, review, and QA lanes. | `CODEX_HOME/agents/*.toml` |
 | `ulw-plan` | Planning skill for durable Ultrawork plans. | Prompt Codex with `ulw-plan ...` |
 | `ulw-loop` | Goal/loop runtime and steering hook. | `lazycodex ulw-loop --help` |
