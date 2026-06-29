@@ -7,6 +7,21 @@ It produces two artifacts:
 - `runtime/package/`: npm-style runtime payload for `omo@sisyphuslabs`
 - `dist/executor.mjs` + `bin/lazycodex-ai-lite.js`: small Node executor built by tsdown
 
+Distribution is through GitHub Releases. The installer downloads the release tarball and runs the bundled executor locally.
+
+## Install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/alexzhang1030/lazycodex-ai-lite/main/scripts/install.sh | sh
+```
+
+Pin a release tag:
+
+```bash
+LAZYCODEX_AI_LITE_VERSION=v0.1.0 \
+curl -fsSL https://raw.githubusercontent.com/alexzhang1030/lazycodex-ai-lite/main/scripts/install.sh | sh
+```
+
 ## Runtime Profile
 
 Default payload:
@@ -88,6 +103,25 @@ Pack the runtime payload:
 bin/lazycodex-ai-lite.js pack -- --pack-destination /tmp
 ```
 
+## CI And Release
+
+Local CI:
+
+```bash
+bun run ci
+```
+
+Release package:
+
+```bash
+bun run package:release
+```
+
+GitHub Actions:
+
+- `.github/workflows/ci.yml` runs tests, rebuilds the executor, validates the runtime payload, smokes the executor, and builds the release package.
+- `.github/workflows/release.yml` runs the same gate on `v*` tags or manual dispatch, then uploads `lazycodex-ai-lite.tar.gz` and `lazycodex-ai-lite.tar.gz.sha256`.
+
 ## Runtime Contents
 
 The extractor keeps this runtime surface:
@@ -100,3 +134,7 @@ The extractor keeps this runtime surface:
 - `dist/cli-node/`
 
 The extractor rewrites package metadata and records the selected feature set in `lazycodex-standalone.json`.
+
+## Credits
+
+This project is extracted from `omo-lazycodex` / OMO Codex Light runtime work in `oh-my-openagent`, then reduced to the minimal LazyCodex runtime surface listed above.

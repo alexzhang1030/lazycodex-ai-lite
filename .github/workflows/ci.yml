@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 25.x
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Test
+        run: bun run test
+
+      - name: Build executor
+        run: bun run build:executor
+
+      - name: Validate runtime payload
+        run: bun run validate:runtime
+
+      - name: Smoke executor
+        run: |
+          node bin/lazycodex-ai-lite.js version
+          node bin/lazycodex-ai-lite.js materialize --out /tmp/lazycodex-ai-lite-runtime
+          test -f /tmp/lazycodex-ai-lite-runtime/packages/omo-codex/plugin/components/ulw-loop/dist/cli.js
+
+      - name: Build release package
+        run: bun run package:release
