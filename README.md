@@ -1,31 +1,24 @@
 # LazyCodex AI Lite
 
-Standalone repo for extracting and executing the LazyCodex multi-agent runtime for Codex.
+Lightweight LazyCodex runtime for OpenAI Codex.
 
-It produces two artifacts:
+This repository packages the useful LazyCodex pieces extracted from OMO Codex Light into a small GitHub Releases distribution. It ships a prebuilt Codex plugin payload plus a small Node executor built with `tsdown`.
 
-- `runtime/package/`: npm-style runtime payload for `omo@sisyphuslabs`
-- `dist/executor.mjs` + `bin/lazycodex-ai-lite.js`: small Node-only executor built by tsdown
+Distribution happens through GitHub Releases. The package registry stays unused.
 
-Distribution is through GitHub Releases. The installer downloads the release tarball and runs the bundled executor locally.
+## Quick Start
 
-## Install
+Install the latest release:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/alexzhang1030/lazycodex-ai-lite/main/scripts/install.sh | sh
 ```
 
-Pin a release tag:
+Install a pinned release:
 
 ```bash
 LAZYCODEX_AI_LITE_VERSION=v0.1.0 \
 curl -fsSL https://raw.githubusercontent.com/alexzhang1030/lazycodex-ai-lite/main/scripts/install.sh | sh
-```
-
-Uninstall:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/alexzhang1030/lazycodex-ai-lite/main/scripts/install.sh | sh -s -- uninstall
 ```
 
 Check local state:
@@ -34,52 +27,148 @@ Check local state:
 omo status
 ```
 
-## What This Installs
+Uninstall:
 
-| Item | What it is | How to use it |
-|------|------------|---------------|
-| `omo@sisyphuslabs` | Codex marketplace plugin id. Codex loads hooks, skills, and bundled agents from this plugin. | Installed into `CODEX_HOME/plugins/cache/sisyphuslabs/omo/<version>/`. |
-| `omo` | Lightweight local CLI wrapper written by this repo. It only exposes LazyCodex runtime commands. | `omo install`, `omo uninstall`, `omo status`, `omo ulw-loop --help`. |
-| `runtime/package/` | Prebuilt LazyCodex plugin payload extracted from OMO Codex Light. | Materialized into `CODEX_HOME/runtime/lazycodex-ai-lite-package`. |
-| `ultrawork agents` | Codex subagent TOML files copied into `CODEX_HOME/agents/`. | Prompt Codex with `ultrawork ...`; Codex can route work to these agents. |
-| `ulw-plan` | Planning skill for durable Ultrawork plans. | Prompt `ulw-plan ...` or use it through Ultrawork-triggered flows. |
-| `ulw-loop` | Loop/goal runtime and CLI. | `omo ulw-loop --help`. |
-| `review-work` | Review skill for completed work. | Prompt `review-work ...`. |
+```bash
+curl -fsSL https://raw.githubusercontent.com/alexzhang1030/lazycodex-ai-lite/main/scripts/install.sh | sh -s -- uninstall
+```
 
-Repo layout and install flow are documented in [docs/repo-graph.md](docs/repo-graph.md).
+## Requirements
+
+- Node.js `>=25.9.0`
+- `curl` and `tar`
+- Codex with plugin support enabled by config
+
+The installer writes Codex config entries for plugin loading, plugin hooks, multi-agent support, child `AGENTS.md`, unified exec, and goals.
+
+## What You Get
+
+| Item | Purpose | Location or command |
+|------|---------|---------------------|
+| `omo@sisyphuslabs` | Codex marketplace plugin id loaded by Codex. | `CODEX_HOME/plugins/cache/sisyphuslabs/omo/<version>/` |
+| `omo` | Lightweight local CLI for LazyCodex runtime commands. | `omo status`, `omo uninstall`, `omo ulw-loop --help` |
+| `ultrawork agents` | Codex subagent TOML bundle for planning, execution, review, and QA lanes. | `CODEX_HOME/agents/*.toml` |
+| `ulw-plan` | Planning skill for durable Ultrawork plans. | Prompt Codex with `ulw-plan ...` |
+| `ulw-loop` | Goal/loop runtime and steering hook. | `omo ulw-loop --help` |
+| `review-work` | Review skill for completed work. | Prompt Codex with `review-work ...` |
+
+Use it in Codex by prompting with:
+
+```text
+ultrawork: implement this change with a plan, evidence, and review.
+```
+
+The installer also links component CLIs:
+
+```bash
+omo-ultrawork
+omo-ulw-loop
+```
 
 ## Runtime Profile
 
 Default payload:
 
-- Ultrawork bundled agents from `components/ultrawork/agents/`
-- `ulw-plan`
-- `ulw-loop`
-- `review-work`
+- `components/bootstrap/scripts/node-dispatch.ps1`
+- `components/ultrawork/dist`
+- `components/ultrawork/agents`
+- `components/ultrawork/directive.md`
+- `components/ulw-loop/dist`
+- `components/ulw-loop/directive.md`
+- top-level skills: `ulw-plan`, `ulw-loop`, `review-work`
+- top-level hooks:
+  - `user-prompt-submit-checking-ultrawork-trigger.json`
+  - `user-prompt-submit-checking-ulw-loop-steering.json`
+  - `pre-tool-use-enforcing-unlimited-goal-budget.json`
 
-Optional packs:
+Current default build size:
+
+| Artifact | Size |
+|----------|------|
+| `runtime/package` | about 572 KB |
+| `runtime/package/packages/omo-codex/plugin` | about 560 KB |
+| `dist/executor.mjs` | about 37 KB |
+| `release/lazycodex-ai-lite.tar.gz` | about 161 KB |
+
+Optional packs supported by the extractor:
 
 - `ulw-research`
 - `teammode`
 - `lazycodex-executor-verify`
 
-The lite MCP manifest is written as an empty `.mcp.json`.
+## Install Layout
 
-## Build Runtime
+Default install writes:
 
-Run from this repo:
+```text
+CODEX_HOME/
++-- config.toml
++-- agents/
++-- runtime/lazycodex-ai-lite-package/
++-- plugins/cache/sisyphuslabs/omo/<version>/
++-- .tmp/marketplaces/sisyphuslabs/
+```
+
+Local bin layout:
+
+```text
+~/.local/bin/omo
+~/.local/bin/lazycodex-ai-lite
+~/.local/bin/omo-ultrawork
+~/.local/bin/omo-ulw-loop
+```
+
+For an isolated install:
+
+```bash
+CODEX_HOME=/tmp/codex-home \
+CODEX_LOCAL_BIN_DIR=/tmp/codex-bin \
+bin/lazycodex-ai-lite.js install -- install --no-tui --codex-autonomous
+```
+
+## Commands
+
+```bash
+# install bundled runtime into CODEX_HOME
+bin/lazycodex-ai-lite.js install -- install --no-tui --codex-autonomous
+
+# inspect install state
+bin/lazycodex-ai-lite.js status --json
+
+# remove managed LazyCodex files and config entries
+bin/lazycodex-ai-lite.js uninstall
+
+# run the bundled ulw-loop CLI
+omo ulw-loop --help
+
+# copy runtime payload to a directory
+bin/lazycodex-ai-lite.js materialize --out /tmp/lazycodex-runtime
+
+# create a package tarball from the runtime payload
+bin/lazycodex-ai-lite.js pack -- --pack-destination /tmp
+```
+
+## Development
+
+Install locked dev dependencies:
+
+```bash
+bun install --frozen-lockfile
+```
+
+Build the runtime from the sibling OMO source checkout:
 
 ```bash
 bun run build:runtime
 ```
 
-Build with all optional packs:
+Build all optional packs:
 
 ```bash
 bun run build:runtime:all
 ```
 
-Build with selected optional packs:
+Build selected optional packs:
 
 ```bash
 bun run src/build-standalone.ts \
@@ -89,7 +178,7 @@ bun run src/build-standalone.ts \
   --optional=ulw-research,teammode,lazycodex-executor-verify
 ```
 
-The source repo needs generated Codex artifacts first:
+The OMO source checkout needs generated Codex artifacts first:
 
 ```bash
 cd /Users/alex/code/contribution/oh-my-openagent
@@ -97,90 +186,45 @@ bun run build:codex-install
 bun run build:codex-plugin
 ```
 
-## Build Executor
-
-Node `>=25.9.0` is the local target.
+Build the executor:
 
 ```bash
 bun run build:executor
 ```
 
-## Use Executor
-
-Install:
-
-```bash
-bin/lazycodex-ai-lite.js install -- install --no-tui --codex-autonomous
-```
-
-Uninstall:
-
-```bash
-bin/lazycodex-ai-lite.js uninstall
-```
-
-Status:
-
-```bash
-bin/lazycodex-ai-lite.js status
-```
-
-Copy runtime to a directory:
-
-```bash
-bin/lazycodex-ai-lite.js materialize --out /tmp/lazycodex-runtime
-```
-
-Install into an isolated Codex home:
-
-```bash
-CODEX_HOME=/tmp/codex-home \
-CODEX_LOCAL_BIN_DIR=/tmp/codex-bin \
-bin/lazycodex-ai-lite.js install -- install --no-tui --codex-autonomous
-```
-
-Pack the runtime payload:
-
-```bash
-bin/lazycodex-ai-lite.js pack -- --pack-destination /tmp
-```
-
-## CI And Release
-
-Local CI:
+Run local CI:
 
 ```bash
 bun run ci
 ```
 
-Release package:
+## Release
+
+Build local release artifacts:
 
 ```bash
 bun run package:release
 ```
 
-GitHub Actions:
+This writes:
 
-- `.github/workflows/ci.yml` runs tests, rebuilds the executor, validates the runtime payload, smokes the executor, and builds the release package.
-- `.github/workflows/release.yml` runs the same gate on `v*` tags or manual dispatch, then uploads `lazycodex-ai-lite.tar.gz` and `lazycodex-ai-lite.tar.gz.sha256`.
+```text
+release/lazycodex-ai-lite.tar.gz
+release/lazycodex-ai-lite.tar.gz.sha256
+```
 
-## Runtime Contents
+Publish through GitHub Actions:
 
-The extractor keeps this runtime surface:
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
 
-- `packages/omo-codex/marketplace.json`
-- `packages/omo-codex/plugin/`
-  - `.codex-plugin/plugin.json`
-  - `.mcp.json`
-  - top-level selected hooks
-  - `components/bootstrap/scripts/node-dispatch.ps1`
-  - `components/ultrawork/{dist,agents,directive.md}`
-  - `components/ulw-loop/{dist,directive.md}`
-  - top-level selected skills
+The release workflow runs tests, builds the executor, validates the runtime payload, builds the release tarball, and uploads the tarball plus checksum.
 
-The lite executor performs install/uninstall directly: it copies the plugin cache, writes the local marketplace snapshot, trusts the selected hooks, installs bundled agents, and links `omo-ultrawork` / `omo-ulw-loop`.
+## Repo Graph
 
-The default runtime payload is about 572 KB on the current build. The extractor records the selected feature set in `lazycodex-standalone.json`.
+Install flow and file graph live in [docs/repo-graph.md](docs/repo-graph.md).
 
 ## Credits
 
