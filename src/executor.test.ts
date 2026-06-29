@@ -3,7 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { mkdtemp } from "node:fs/promises";
-import { materializeRuntime, parseExecutorArgs } from "./executor";
+import { materializeRuntime, parseExecutorArgs, resolveDefaultInstallOutDir } from "./executor";
 
 describe("parseExecutorArgs", () => {
   test("parses materialize options", () => {
@@ -34,6 +34,20 @@ describe("parseExecutorArgs", () => {
       keepTemp: false,
       passthrough: ["--pack-destination", "/tmp/out"]
     });
+  });
+});
+
+describe("resolveDefaultInstallOutDir", () => {
+  test("uses CODEX_HOME when present", () => {
+    expect(resolveDefaultInstallOutDir({ env: { CODEX_HOME: "/tmp/codex-home" }, homeDir: "/home/user" })).toBe(
+      "/tmp/codex-home/runtime/lazycodex-ai-lite-package"
+    );
+  });
+
+  test("falls back to home .codex", () => {
+    expect(resolveDefaultInstallOutDir({ env: {}, homeDir: "/home/user" })).toBe(
+      "/home/user/.codex/runtime/lazycodex-ai-lite-package"
+    );
   });
 });
 

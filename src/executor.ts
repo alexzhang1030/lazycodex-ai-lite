@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
 import { cp, mkdtemp, mkdir, readFile, rm, stat } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -104,9 +104,10 @@ export async function resolveRuntimeRoot(explicitRuntimeRoot?: string): Promise<
 }
 
 async function runInstall(args: ExecutorArgs): Promise<number> {
-  const packageRoot = args.outDir
-    ? await materializeRuntime({ runtimeRoot: args.runtimeRoot, outDir: args.outDir })
-    : await materializeTempRuntime(args.runtimeRoot);
+  const packageRoot = await materializeRuntime({
+    runtimeRoot: args.runtimeRoot,
+    outDir: args.outDir ?? resolveDefaultInstallOutDir()
+  });
   const installerPath = join(packageRoot, "packages", "omo-codex", "scripts", "install-local.mjs");
   const installArgs = args.passthrough.length > 0 ? [...args.passthrough] : ["install"];
   const result = spawnSync(resolveNodeCommand(), [installerPath, ...installArgs], {
@@ -118,8 +119,13 @@ async function runInstall(args: ExecutorArgs): Promise<number> {
     }
   });
   if (result.error !== undefined) throw result.error;
-  if (!args.keepTemp && args.outDir === undefined) await rm(packageRoot, { recursive: true, force: true });
   return result.status ?? 1;
+}
+
+export function resolveDefaultInstallOutDir(input?: { readonly env?: NodeJS.ProcessEnv; readonly homeDir?: string }): string {
+  const env = input?.env ?? process.env;
+  const codexHome = env.CODEX_HOME?.trim() || join(input?.homeDir ?? homedir(), ".codex");
+  return join(codexHome, "runtime", "lazycodex-ai-lite-package");
 }
 
 async function runPack(args: ExecutorArgs): Promise<number> {
@@ -160,7 +166,7 @@ function printHelp(): void {
     "",
     "Options:",
     "  --runtime <dir>               Runtime package directory",
-    "  --out <dir>                   Materialized package directory",
+    "  --out <dir>                   Materialized package directory; install defaults to CODEX_HOME/runtime/lazycodex-ai-lite-package",
     "  --keep-temp                   Keep temporary materialized package"
   ].join("\n"));
 }
