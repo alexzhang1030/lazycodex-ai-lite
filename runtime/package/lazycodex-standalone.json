@@ -1,0 +1,31 @@
+{
+  "packageName": "lazycodex-ai-lite",
+  "version": "4.14.0",
+  "sourceRoot": "/Users/alex/code/contribution/oh-my-openagent",
+  "generatedAt": "2026-06-29T05:15:27.527Z",
+  "strategy": "prebuilt-plugin-payload",
+  "features": {
+    "core": [
+      "ultrawork agents",
+      "ulw-plan",
+      "ulw-loop",
+      "review-work"
+    ],
+    "optional": [],
+    "components": [
+      "bootstrap",
+      "ultrawork",
+      "ulw-loop"
+    ],
+    "hooks": [
+      "pre-tool-use-enforcing-unlimited-goal-budget.json",
+      "user-prompt-submit-checking-ultrawork-trigger.json",
+      "user-prompt-submit-checking-ulw-loop-steering.json"
+    ],
+    "skills": [
+      "review-work",
+      "ulw-loop",
+      "ulw-plan"
+    ]
+  }
+}

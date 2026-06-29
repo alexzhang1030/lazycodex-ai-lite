@@ -1,0 +1,25 @@
+{
+  "name": "lazycodex-ai-lite",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "Standalone LazyCodex multi-agent runtime extractor and executor.",
+  "scripts": {
+    "build": "bun run build:runtime && bun run build:executor",
+    "build:runtime": "bun run src/build-standalone.ts --source ../oh-my-openagent --out runtime/package --name lazycodex-ai-lite",
+    "build:runtime:all": "bun run src/build-standalone.ts --source ../oh-my-openagent --out runtime/package --name lazycodex-ai-lite --optional=all",
+    "build:executor": "tsdown",
+    "test": "bun test src"
+  },
+  "devDependencies": {
+    "bun-types": "1.3.14",
+    "tsdown": "^0.22.3"
+  },
+  "bin": {
+    "lazycodex-ai-lite": "bin/lazycodex-ai-lite.js",
+    "lazycodex-ai-lite-executor": "bin/lazycodex-ai-lite.js"
+  },
+  "engines": {
+    "node": ">=25.9.0"
+  }
+}
