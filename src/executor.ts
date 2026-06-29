@@ -18,7 +18,9 @@ export interface ExecutorArgs {
 
 const ignoredRuntimeDirectoryNames = new Set([".git", "node_modules"]);
 const managedMarketplaceName = "sisyphuslabs";
-const managedPluginName = "omo";
+const managedPluginName = "lazycodex";
+const legacyManagedPluginNames = ["omo"] as const;
+const userCliName = "lazycodex";
 const liteWrapperMarker = "LAZYCODEX_AI_LITE_GENERATED_WRAPPER";
 const upstreamRuntimeWrapperMarker = "OMO_GENERATED_RUNTIME_WRAPPER";
 const managedAgentFallbackNames = [
@@ -215,12 +217,13 @@ async function runPack(args: ExecutorArgs): Promise<number> {
 }
 
 async function runComponentCommand(command: "ulw-loop" | "ultrawork", args: readonly string[]): Promise<number> {
-  const binName = command === "ulw-loop" ? "omo-ulw-loop" : "omo-ultrawork";
+  const binName = command === "ulw-loop" ? "lazycodex-ulw-loop" : "lazycodex-ultrawork";
   const binPath = join(resolveCodexInstallerBinDir(), binName);
   if (!await isFileSystemEntry(binPath)) {
-    throw new Error(`${command} is not installed. Run: omo install`);
+    throw new Error(`${command} is not installed. Run: ${userCliName} install`);
   }
-  const result = spawnSync(binPath, [...args], {
+  const componentArgs = command === "ulw-loop" ? ["ulw-loop", ...args] : [...args];
+  const result = spawnSync(binPath, componentArgs, {
     cwd: process.cwd(),
     stdio: "inherit",
     env: process.env
@@ -242,7 +245,7 @@ async function printVersion(runtimeRoot?: string): Promise<void> {
 
 function printHelp(): void {
   console.log([
-    "Usage: omo <command> [options]",
+    `Usage: ${userCliName} <command> [options]`,
     "",
     "Commands:",
     "  install [installer args]      Install the bundled LazyCodex runtime for Codex",
@@ -259,7 +262,7 @@ function printHelp(): void {
     "  --out <dir>                   Materialized package directory; install defaults to CODEX_HOME/runtime/lazycodex-ai-lite-package",
     "  --keep-temp                   Keep temporary materialized package",
     "",
-    "The installed omo wrapper is intentionally limited to LazyCodex runtime commands."
+    "The installed lazycodex wrapper is intentionally limited to LazyCodex runtime commands."
   ].join("\n"));
 }
 
@@ -282,14 +285,20 @@ async function installLiteCliEntrypoints(input: {
   const binDir = resolve(input.binDir ?? resolveCodexInstallerBinDir());
   await mkdir(binDir, { recursive: true });
   if (process.platform === "win32") {
-    await writeFile(join(binDir, "omo.cmd"), windowsLiteWrapper(packageEntrypoint));
+    await removeLegacyManagedBin(join(binDir, "omo.cmd"));
+    await writeFile(join(binDir, "lazycodex.cmd"), windowsLiteWrapper(packageEntrypoint));
     await writeFile(join(binDir, "lazycodex-ai-lite.cmd"), windowsLiteWrapper(packageEntrypoint));
     return;
   }
-  await writeFile(join(binDir, "omo"), posixLiteWrapper(packageEntrypoint));
+  await removeLegacyManagedBin(join(binDir, "omo"));
+  await writeFile(join(binDir, "lazycodex"), posixLiteWrapper(packageEntrypoint));
   await writeFile(join(binDir, "lazycodex-ai-lite"), posixLiteWrapper(packageEntrypoint));
-  await chmod(join(binDir, "omo"), 0o755);
+  await chmod(join(binDir, "lazycodex"), 0o755);
   await chmod(join(binDir, "lazycodex-ai-lite"), 0o755);
+}
+
+async function removeLegacyManagedBin(path: string): Promise<void> {
+  if (await isManagedBinPath(path)) await rm(path, { force: true });
 }
 
 async function resolveBuiltExecutorPath(): Promise<string> {
@@ -361,7 +370,7 @@ interface InstallStatusReport {
   readonly runtimePackage: boolean;
   readonly pluginCache: boolean;
   readonly marketplaceSnapshot: boolean;
-  readonly omoBin: boolean;
+  readonly lazycodexBin: boolean;
   readonly componentBins: readonly string[];
   readonly managedAgents: readonly string[];
 }
@@ -423,9 +432,9 @@ export async function installLazyCodex(input: {
   await assertRuntimeRoot(packageRoot);
   const packageJson = JSON.parse(await readFile(join(packageRoot, "package.json"), "utf8")) as { readonly version?: unknown };
   const version = typeof packageJson.version === "string" && packageJson.version.trim().length > 0 ? packageJson.version.trim() : "0.0.0";
-  const marketplacePath = join(packageRoot, "packages", "omo-codex", "marketplace.json");
+  const marketplacePath = join(packageRoot, "packages", "lazycodex", "marketplace.json");
   const marketplace = JSON.parse(await readFile(marketplacePath, "utf8")) as Record<string, unknown>;
-  const sourcePluginRoot = join(packageRoot, "packages", "omo-codex", "plugin");
+  const sourcePluginRoot = join(packageRoot, "packages", "lazycodex", "plugin");
   const pluginRoot = join(codexHome, "plugins", "cache", managedMarketplaceName, managedPluginName, version);
   const snapshotRoot = join(codexHome, ".tmp", "marketplaces", managedMarketplaceName);
   const snapshotPluginRoot = join(snapshotRoot, "plugins", managedPluginName);
@@ -526,8 +535,8 @@ async function writeInstalledAgentsManifest(pluginRoot: string, agents: readonly
 
 async function installComponentBins(input: { readonly pluginRoot: string; readonly binDir: string }): Promise<string[]> {
   const entries = [
-    { binName: "omo-ultrawork", cli: join(input.pluginRoot, "components", "ultrawork", "dist", "cli.js") },
-    { binName: "omo-ulw-loop", cli: join(input.pluginRoot, "components", "ulw-loop", "dist", "cli.js") }
+    { binName: "lazycodex-ultrawork", cli: join(input.pluginRoot, "components", "ultrawork", "dist", "cli.js") },
+    { binName: "lazycodex-ulw-loop", cli: join(input.pluginRoot, "components", "ulw-loop", "dist", "cli.js") }
   ];
   await mkdir(input.binDir, { recursive: true });
   const installed: string[] = [];
@@ -765,7 +774,7 @@ export async function inspectLazyCodexInstall(input: {
   const binDir = resolve(input.binDir);
   const config = await readTextIfExists(join(codexHome, "config.toml"));
   const componentBins = [];
-  for (const binName of ["omo-ultrawork", "omo-ulw-loop"]) {
+  for (const binName of ["lazycodex-ultrawork", "lazycodex-ulw-loop"]) {
     const path = join(binDir, binName);
     if (await isFileSystemEntry(path)) componentBins.push(path);
   }
@@ -773,11 +782,11 @@ export async function inspectLazyCodexInstall(input: {
   const report = {
     codexHome,
     binDir,
-    configEnabled: config?.includes('[plugins."omo@sisyphuslabs"]') ?? false,
+    configEnabled: config?.includes(`[plugins."${managedPluginName}@${managedMarketplaceName}"]`) ?? false,
     runtimePackage: await isFileSystemEntry(join(codexHome, "runtime", "lazycodex-ai-lite-package")),
     pluginCache: await isFileSystemEntry(join(codexHome, "plugins", "cache", managedMarketplaceName, managedPluginName)),
     marketplaceSnapshot: await isFileSystemEntry(join(codexHome, ".tmp", "marketplaces", managedMarketplaceName)),
-    omoBin: await isFileSystemEntry(join(binDir, process.platform === "win32" ? "omo.cmd" : "omo")),
+    lazycodexBin: await isFileSystemEntry(join(binDir, process.platform === "win32" ? "lazycodex.cmd" : "lazycodex")),
     componentBins,
     managedAgents
   };
@@ -788,7 +797,7 @@ export async function inspectLazyCodexInstall(input: {
       report.runtimePackage ||
       report.pluginCache ||
       report.marketplaceSnapshot ||
-      report.omoBin ||
+      report.lazycodexBin ||
       report.componentBins.length > 0 ||
       report.managedAgents.length > 0
   };
@@ -799,6 +808,10 @@ export function removeLazyCodexConfig(config: string, agentNames: ReadonlySet<st
     if (header === `marketplaces.${managedMarketplaceName}`) return true;
     if (header === `plugins."${managedPluginName}@${managedMarketplaceName}"`) return true;
     if (header.startsWith(`hooks.state."${managedPluginName}@${managedMarketplaceName}:`)) return true;
+    for (const pluginName of legacyManagedPluginNames) {
+      if (header === `plugins."${pluginName}@${managedMarketplaceName}"`) return true;
+      if (header.startsWith(`hooks.state."${pluginName}@${managedMarketplaceName}:`)) return true;
+    }
     if (header === "features.multi_agent_v2") return true;
     if (!header.startsWith("agents.")) return false;
     return agentNames.has(parseTomlHeaderTail(header.slice("agents.".length)));
@@ -875,9 +888,15 @@ function includeLeadingLazyCodexComments(lines: readonly string[], start: number
 }
 
 async function discoverInstalledAgentPaths(codexHome: string): Promise<string[]> {
+  const legacyCacheManifests: string[] = [];
+  for (const pluginName of legacyManagedPluginNames) {
+    legacyCacheManifests.push(...await findFiles(join(codexHome, "plugins", "cache", managedMarketplaceName, pluginName), ".installed-agents.json", 3));
+  }
   const manifests = [
     join(codexHome, ".tmp", "marketplaces", managedMarketplaceName, "plugins", managedPluginName, ".installed-agents.json"),
-    ...await findFiles(join(codexHome, "plugins", "cache", managedMarketplaceName, managedPluginName), ".installed-agents.json", 3)
+    ...legacyManagedPluginNames.map((pluginName) => join(codexHome, ".tmp", "marketplaces", managedMarketplaceName, "plugins", pluginName, ".installed-agents.json")),
+    ...await findFiles(join(codexHome, "plugins", "cache", managedMarketplaceName, managedPluginName), ".installed-agents.json", 3),
+    ...legacyCacheManifests
   ];
   const paths: string[] = [];
   for (const manifest of manifests) {
@@ -910,8 +929,8 @@ async function findFiles(root: string, fileName: string, maxDepth: number): Prom
 
 async function managedBinPaths(binDir: string): Promise<string[]> {
   const names = process.platform === "win32"
-    ? ["omo.cmd", "lazycodex-ai-lite.cmd", "omo-ultrawork.cmd", "omo-ulw-loop.cmd"]
-    : ["omo", "lazycodex-ai-lite", "omo-ultrawork", "omo-ulw-loop"];
+    ? ["lazycodex.cmd", "lazycodex-ai-lite.cmd", "lazycodex-ultrawork.cmd", "lazycodex-ulw-loop.cmd", "omo.cmd", "omo-ultrawork.cmd", "omo-ulw-loop.cmd"]
+    : ["lazycodex", "lazycodex-ai-lite", "lazycodex-ultrawork", "lazycodex-ulw-loop", "omo", "omo-ultrawork", "omo-ulw-loop"];
   const paths: string[] = [];
   for (const name of names) {
     const path = join(binDir, name);
@@ -986,7 +1005,7 @@ function printStatusReport(report: InstallStatusReport): void {
   console.log(`runtime package: ${String(report.runtimePackage)}`);
   console.log(`plugin cache: ${String(report.pluginCache)}`);
   console.log(`marketplace snapshot: ${String(report.marketplaceSnapshot)}`);
-  console.log(`omo bin: ${String(report.omoBin)}`);
+  console.log(`lazycodex bin: ${String(report.lazycodexBin)}`);
   console.log(`component bins: ${report.componentBins.length}`);
   console.log(`managed agents: ${report.managedAgents.length}`);
 }
@@ -1039,9 +1058,9 @@ function shouldCopyRuntimePath(path: string, root: string): boolean {
 async function assertRuntimeRoot(runtimeRoot: string): Promise<void> {
   const required = [
     "package.json",
-    "packages/omo-codex/marketplace.json",
-    "packages/omo-codex/plugin/.codex-plugin/plugin.json",
-    "packages/omo-codex/plugin/.mcp.json"
+    "packages/lazycodex/marketplace.json",
+    "packages/lazycodex/plugin/.codex-plugin/plugin.json",
+    "packages/lazycodex/plugin/.mcp.json"
   ];
   const missing: string[] = [];
   for (const file of required) {

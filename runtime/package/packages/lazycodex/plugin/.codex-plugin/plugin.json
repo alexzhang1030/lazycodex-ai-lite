@@ -1,0 +1,50 @@
+{
+  "name": "lazycodex",
+  "version": "4.14.0",
+  "description": "LazyCodex multi-agent runtime for Codex.",
+  "author": {
+    "name": "Yeongyu Kim",
+    "email": "yeongyu@users.noreply.github.com",
+    "url": "https://github.com/code-yeongyu"
+  },
+  "homepage": "https://github.com/alexzhang1030/lazycodex-ai-lite",
+  "repository": "https://github.com/alexzhang1030/lazycodex-ai-lite",
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "codex-plugin",
+    "lazycodex",
+    "hooks",
+    "workflow",
+    "skills"
+  ],
+  "skills": "./skills/",
+  "hooks": [
+    "./hooks/user-prompt-submit-checking-ultrawork-trigger.json",
+    "./hooks/user-prompt-submit-checking-ulw-loop-steering.json",
+    "./hooks/pre-tool-use-enforcing-unlimited-goal-budget.json"
+  ],
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "LazyCodex",
+    "shortDescription": "LazyCodex multi-agent runtime",
+    "longDescription": "LazyCodex Lite ships Ultrawork agents, ulw-plan, ulw-loop, and review-work for Codex multi-agent workflows.",
+    "developerName": "Yeongyu Kim",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Hooks",
+      "Workflow",
+      "Multi-Agent"
+    ],
+    "websiteURL": "https://github.com/alexzhang1030/lazycodex-ai-lite",
+    "privacyPolicyURL": "https://github.com/alexzhang1030/lazycodex-ai-lite#privacy",
+    "termsOfServiceURL": "https://github.com/alexzhang1030/lazycodex-ai-lite#license",
+    "defaultPrompt": [
+      "ultrawork: plan and run this change with evidence.",
+      "ulw-loop: create goals and keep progress durable.",
+      "review-work: audit the completed work."
+    ],
+    "brandColor": "#7C3AED",
+    "screenshots": []
+  }
+}

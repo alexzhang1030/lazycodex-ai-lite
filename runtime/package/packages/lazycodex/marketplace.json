@@ -1,0 +1,12 @@
+{
+  "name": "sisyphuslabs",
+  "interface": {
+    "displayName": "Sisyphus Labs"
+  },
+  "plugins": [
+    {
+      "name": "lazycodex",
+      "source": "./plugins/lazycodex"
+    }
+  ]
+}

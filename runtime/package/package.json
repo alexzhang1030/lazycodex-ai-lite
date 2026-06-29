@@ -3,8 +3,8 @@
   "version": "4.14.0",
   "type": "module",
   "files": [
-    "packages/omo-codex/plugin",
-    "packages/omo-codex/marketplace.json"
+    "packages/lazycodex/plugin",
+    "packages/lazycodex/marketplace.json"
   ],
   "scripts": {},
   "dependencies": {},

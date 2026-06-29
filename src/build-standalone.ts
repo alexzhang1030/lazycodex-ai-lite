@@ -29,8 +29,8 @@ interface FeatureSelection {
 }
 
 const copyEntries: readonly CopyEntry[] = [
-  { from: "packages/omo-codex/marketplace.json", to: "packages/omo-codex/marketplace.json" },
-  { from: "packages/omo-codex/plugin", to: "packages/omo-codex/plugin" }
+  { from: "packages/omo-codex/marketplace.json", to: "packages/lazycodex/marketplace.json" },
+  { from: "packages/omo-codex/plugin", to: "packages/lazycodex/plugin" }
 ];
 
 const requiredFiles = [
@@ -148,7 +148,8 @@ export async function buildStandalonePackage(options: BuildOptions): Promise<voi
   }
 
   const version = options.version ?? await readSourceVersion(sourceRoot);
-  await filterCodexPluginPayload(join(outDir, "packages/omo-codex/plugin"), featureSelection, version);
+  await filterCodexPluginPayload(join(outDir, "packages/lazycodex/plugin"), featureSelection, version);
+  await rewriteMarketplaceManifest(join(outDir, "packages/lazycodex/marketplace.json"));
   await writeStandalonePackageJson(outDir, { packageName, version });
   await writeBuildManifest(outDir, { sourceRoot, packageName, version, featureSelection });
 }
@@ -207,10 +208,84 @@ async function filterCodexPluginPayload(pluginRoot: string, selection: FeatureSe
   await pruneDirectoryChildren(pluginRoot, allowedPluginRootEntries);
   await pruneDirectoryChildren(join(pluginRoot, "components"), selection.components);
   await trimSelectedComponentPayloads(pluginRoot, selection);
+  await patchSelectedComponentCliBranding(pluginRoot);
   await pruneDirectoryChildren(join(pluginRoot, "hooks"), selection.hooks);
   await pruneDirectoryChildren(join(pluginRoot, "skills"), selection.skills);
   await writeJson(join(pluginRoot, ".mcp.json"), { mcpServers: {} });
   await rewritePluginManifest(pluginRoot, selection, version);
+}
+
+async function patchSelectedComponentCliBranding(pluginRoot: string): Promise<void> {
+  const files = await findTextPayloadFiles(pluginRoot);
+  for (const file of files) {
+    if (!await exists(file)) continue;
+    const current = await readFile(file, "utf8");
+    const next = current
+      .replaceAll("(OmO)", "(LazyCodex)")
+      .replaceAll("OMO_ULW_LOOP_SESSION_ID", "LAZYCODEX_ULW_LOOP_SESSION_ID")
+      .replaceAll("OMO_ULW_LOOP_STEER", "LAZYCODEX_ULW_LOOP_STEER")
+      .replaceAll("OMO installs", "LazyCodex installs")
+      .replaceAll("OMO goal", "LazyCodex goal")
+      .replaceAll("OMO goals", "LazyCodex goals")
+      .replaceAll("OMO G001", "LazyCodex G001")
+      .replaceAll("OMO G002", "LazyCodex G002")
+      .replaceAll("OMO story", "LazyCodex story")
+      .replaceAll("OMO ledger", "LazyCodex ledger")
+      .replaceAll("omo-ultrawork", "lazycodex-ultrawork")
+      .replaceAll("omo-ulw-loop", "lazycodex-ulw-loop")
+      .replaceAll("omo ulw-loop", "lazycodex ulw-loop")
+      .replaceAll("omo hook", "lazycodex hook")
+      .replaceAll("omo help", "lazycodex help")
+      .replaceAll("omo.ulw-loop", "lazycodex.ulw-loop")
+      .replaceAll("command -v omo", "command -v lazycodex")
+      .replaceAll("ULW_LOOP_CLI=omo", "ULW_LOOP_CLI=lazycodex")
+      .replaceAll("$HOME/.local/bin/omo", "$HOME/.local/bin/lazycodex")
+      .replaceAll("$CODEX_HOME/bin/omo", "$CODEX_HOME/bin/lazycodex")
+      .replaceAll("sisyphuslabs/omo", "sisyphuslabs/lazycodex")
+      .replaceAll("packages/omo-codex", "packages/lazycodex")
+      .replaceAll("packages/omo-opencode/src/hooks/prometheus-md-only/path-policy.ts", "the upstream plan path policy")
+      .replaceAll("call_omo_agent", "opencode_delegate_agent")
+      .replaceAll("omo harnesses", "LazyCodex harnesses")
+      .replaceAll("omoRoot", "lazycodexRoot")
+      .replaceAll("omoReal", "lazycodexReal")
+      .replaceAll(".omo", ".lazycodex")
+      .replaceAll("|omo\\.ulw-loop\\.steer", "")
+      .replaceAll("PATH omo", "PATH lazycodex")
+      .replaceAll("No ulw-loop-capable omo executable", "No ulw-loop-capable lazycodex executable")
+      .replaceAll("If `omo` is absent", "If `lazycodex` is absent")
+      .replaceAll("omo() { \"$ULW_LOOP_NODE\" \"$ULW_LOOP_CLI\" \"$@\"; }", "lazycodex() { \"$ULW_LOOP_NODE\" \"$ULW_LOOP_CLI\" \"$@\"; }")
+      .replaceAll("`omo sparkshell cat ", "`cat ")
+      .replaceAll("omo sparkshell cat ", "cat ")
+      .replaceAll("`omo sparkshell rg --files`", "`rg --files`")
+      .replaceAll("`omo sparkshell 'rg --files'`", "`rg --files`")
+      .replaceAll("omo sparkshell 'rg --files'", "rg --files")
+      .replaceAll("omo sparkshell rg --files", "rg --files")
+      .replaceAll("`omo sparkshell <command> [args...]`", "direct shell commands")
+      .replaceAll("omo sparkshell <command> [args...]", "direct shell commands")
+      .replaceAll("omo sparkshell --shell", "shell")
+      .replaceAll("omo sparkshell --tmux-pane", "tmux capture-pane")
+      .replaceAll("[omo]", "[lazycodex]");
+    if (next !== current) await writeFile(file, next);
+  }
+}
+
+async function findTextPayloadFiles(root: string): Promise<string[]> {
+  const extensions = new Set([".js", ".json", ".md", ".mjs", ".toml", ".yaml", ".yml"]);
+  const files: string[] = [];
+  for (const extension of extensions) files.push(...await findFilesByExtension(root, extension));
+  return [...new Set(files)].sort();
+}
+
+async function findFilesByExtension(root: string, extension: string): Promise<string[]> {
+  if (!await exists(root)) return [];
+  const entries = await readdir(root, { withFileTypes: true });
+  const files: string[] = [];
+  for (const entry of entries) {
+    const path = join(root, entry.name);
+    if (entry.isDirectory()) files.push(...await findFilesByExtension(path, extension));
+    if (entry.isFile() && entry.name.endsWith(extension)) files.push(path);
+  }
+  return files.sort();
 }
 
 async function trimSelectedComponentPayloads(pluginRoot: string, selection: FeatureSelection): Promise<void> {
@@ -237,17 +312,25 @@ async function rewritePluginManifest(pluginRoot: string, selection: FeatureSelec
   const manifestPath = join(pluginRoot, ".codex-plugin/plugin.json");
   const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as Record<string, unknown>;
   const hooks = Array.isArray(manifest.hooks) ? manifest.hooks : [];
+  manifest.name = "lazycodex";
   manifest.version = version;
   manifest.description = "LazyCodex multi-agent runtime for Codex.";
+  manifest.homepage = "https://github.com/alexzhang1030/lazycodex-ai-lite";
+  manifest.repository = "https://github.com/alexzhang1030/lazycodex-ai-lite";
+  manifest.keywords = ["codex", "codex-plugin", "lazycodex", "hooks", "workflow", "skills"];
   manifest.hooks = hooks
     .filter((hook): hook is string => typeof hook === "string")
     .filter((hook) => selection.hooks.has(basename(hook)));
   manifest.mcpServers = "./.mcp.json";
   manifest.interface = {
     ...(isRecord(manifest.interface) ? manifest.interface : {}),
+    displayName: "LazyCodex",
     shortDescription: "LazyCodex multi-agent runtime",
     longDescription: "LazyCodex Lite ships Ultrawork agents, ulw-plan, ulw-loop, and review-work for Codex multi-agent workflows.",
     capabilities: ["Hooks", "Workflow", "Multi-Agent"],
+    websiteURL: "https://github.com/alexzhang1030/lazycodex-ai-lite",
+    privacyPolicyURL: "https://github.com/alexzhang1030/lazycodex-ai-lite#privacy",
+    termsOfServiceURL: "https://github.com/alexzhang1030/lazycodex-ai-lite#license",
     defaultPrompt: [
       "ultrawork: plan and run this change with evidence.",
       "ulw-loop: create goals and keep progress durable.",
@@ -255,6 +338,17 @@ async function rewritePluginManifest(pluginRoot: string, selection: FeatureSelec
     ]
   };
   await writeJson(manifestPath, manifest);
+}
+
+async function rewriteMarketplaceManifest(marketplacePath: string): Promise<void> {
+  const marketplace = JSON.parse(await readFile(marketplacePath, "utf8")) as Record<string, unknown>;
+  marketplace.plugins = [
+    {
+      name: "lazycodex",
+      source: "./plugins/lazycodex"
+    }
+  ];
+  await writeJson(marketplacePath, marketplace);
 }
 
 async function pruneDirectoryChildren(directory: string, allowedNames: ReadonlySet<string>): Promise<void> {
@@ -318,8 +412,8 @@ async function writeStandalonePackageJson(
     version: input.version,
     type: "module",
     files: [
-      "packages/omo-codex/plugin",
-      "packages/omo-codex/marketplace.json"
+      "packages/lazycodex/plugin",
+      "packages/lazycodex/marketplace.json"
     ],
     scripts: {},
     dependencies: {},

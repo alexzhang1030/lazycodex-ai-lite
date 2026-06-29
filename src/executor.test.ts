@@ -179,7 +179,7 @@ describe("materializeRuntime", () => {
     await materializeRuntime({ runtimeRoot, outDir });
 
     expect(await readFile(join(outDir, "package.json"), "utf8")).toContain("lazycodex-ai-lite");
-    expect(await readFile(join(outDir, "packages/omo-codex/plugin/.codex-plugin/plugin.json"), "utf8")).toContain("omo");
+    expect(await readFile(join(outDir, "packages/lazycodex/plugin/.codex-plugin/plugin.json"), "utf8")).toContain("lazycodex");
     await expect(readFile(join(outDir, "node_modules/ignored.txt"), "utf8")).rejects.toThrow();
   });
 });
@@ -202,33 +202,33 @@ describe("installLazyCodex", () => {
       autonomousPermissions: true
     });
 
-    const pluginRoot = join(codexHome, "plugins/cache/sisyphuslabs/omo/1.0.0");
+    const pluginRoot = join(codexHome, "plugins/cache/sisyphuslabs/lazycodex/1.0.0");
     const config = await readFile(join(codexHome, "config.toml"), "utf8");
     expect(report.pluginRoot).toBe(pluginRoot);
     expect(report.installedAgents).toEqual([join(codexHome, "agents", "plan.toml")]);
-    expect(await readFile(join(pluginRoot, ".codex-plugin/plugin.json"), "utf8")).toContain("omo");
-    expect(await readFile(join(codexHome, ".tmp/marketplaces/sisyphuslabs/plugins/omo/.codex-plugin/plugin.json"), "utf8")).toContain("omo");
-    expect(await readFile(join(codexHome, "plugins/cache/sisyphuslabs/.agents/plugins/marketplace.json"), "utf8")).toContain("./omo/1.0.0");
+    expect(await readFile(join(pluginRoot, ".codex-plugin/plugin.json"), "utf8")).toContain("lazycodex");
+    expect(await readFile(join(codexHome, ".tmp/marketplaces/sisyphuslabs/plugins/lazycodex/.codex-plugin/plugin.json"), "utf8")).toContain("lazycodex");
+    expect(await readFile(join(codexHome, "plugins/cache/sisyphuslabs/.agents/plugins/marketplace.json"), "utf8")).toContain("./lazycodex/1.0.0");
     expect(config).toContain('approval_policy = "never"');
     expect(config).toContain('sandbox_mode = "danger-full-access"');
     expect(config).toContain("[features]");
-    expect(config).toContain('[plugins."omo@sisyphuslabs"]');
-    expect(config).toContain('[hooks.state."omo@sisyphuslabs:hooks/user-prompt-submit.json:user_prompt_submit:0:0"]');
+    expect(config).toContain('[plugins."lazycodex@sisyphuslabs"]');
+    expect(config).toContain('[hooks.state."lazycodex@sisyphuslabs:hooks/user-prompt-submit.json:user_prompt_submit:0:0"]');
     expect(config).toContain("trusted_hash = \"sha256:");
     expect(config).toContain("[agents.plan]");
     expect(await readFile(join(codexHome, "agents/plan.toml"), "utf8")).toContain('name = "plan"');
     expect(await readFile(join(packageRoot, "dist/executor.mjs"), "utf8")).toContain("executor");
     expect(await readFile(join(packageRoot, "bin/lazycodex-ai-lite.js"), "utf8")).toContain("LAZYCODEX_AI_LITE_GENERATED_WRAPPER");
-    expect(await readFile(join(binDir, "omo"), "utf8")).toContain("LAZYCODEX_AI_LITE_GENERATED_WRAPPER");
+    expect(await readFile(join(binDir, "lazycodex"), "utf8")).toContain("LAZYCODEX_AI_LITE_GENERATED_WRAPPER");
     expect(await readFile(join(binDir, "lazycodex-ai-lite"), "utf8")).toContain("LAZYCODEX_AI_LITE_GENERATED_WRAPPER");
     if (process.platform === "win32") {
-      expect(await readFile(join(binDir, "omo-ulw-loop.cmd"), "utf8")).toContain("components\\ulw-loop\\dist\\cli.js");
-      expect(await readFile(join(binDir, "omo-ultrawork.cmd"), "utf8")).toContain("components\\ultrawork\\dist\\cli.js");
+      expect(await readFile(join(binDir, "lazycodex-ulw-loop.cmd"), "utf8")).toContain("components\\ulw-loop\\dist\\cli.js");
+      expect(await readFile(join(binDir, "lazycodex-ultrawork.cmd"), "utf8")).toContain("components\\ultrawork\\dist\\cli.js");
     } else {
-      expect(await readlink(join(binDir, "omo-ulw-loop"))).toContain("components/ulw-loop/dist/cli.js");
-      expect(await readlink(join(binDir, "omo-ultrawork"))).toContain("components/ultrawork/dist/cli.js");
+      expect(await readlink(join(binDir, "lazycodex-ulw-loop"))).toContain("components/ulw-loop/dist/cli.js");
+      expect(await readlink(join(binDir, "lazycodex-ultrawork"))).toContain("components/ultrawork/dist/cli.js");
     }
-    await expect(readFile(join(packageRoot, "packages/omo-codex/scripts/install-dist/install-local.mjs"), "utf8")).rejects.toThrow();
+    await expect(readFile(join(packageRoot, "packages/lazycodex/scripts/install-dist/install-local.mjs"), "utf8")).rejects.toThrow();
   });
 });
 
@@ -273,27 +273,27 @@ describe("uninstallLazyCodex", () => {
     const root = await mkdtemp(join(tmpdir(), "lazycodex-status-test-"));
     const codexHome = join(root, ".codex");
     const binDir = join(root, "bin");
-    await writeText(join(codexHome, "config.toml"), '[plugins."omo@sisyphuslabs"]\nenabled = true\n');
+    await writeText(join(codexHome, "config.toml"), '[plugins."lazycodex@sisyphuslabs"]\nenabled = true\n');
     await writeText(join(codexHome, "runtime/lazycodex-ai-lite-package/package.json"), "{}\n");
-    await writeText(join(binDir, "omo"), "#!/bin/sh\n# LAZYCODEX_AI_LITE_GENERATED_WRAPPER\n");
+    await writeText(join(binDir, "lazycodex"), "#!/bin/sh\n# LAZYCODEX_AI_LITE_GENERATED_WRAPPER\n");
 
     const status = await inspectLazyCodexInstall({ codexHome, binDir });
     expect(status.installed).toBe(true);
     expect(status.configEnabled).toBe(true);
     expect(status.runtimePackage).toBe(true);
-    expect(status.omoBin).toBe(true);
+    expect(status.lazycodexBin).toBe(true);
   });
 });
 
 async function createRuntime(runtimeRoot: string): Promise<void> {
   await writeJson(join(runtimeRoot, "package.json"), { name: "lazycodex-ai-lite", version: "1.0.0" });
-  await writeJson(join(runtimeRoot, "packages/omo-codex/marketplace.json"), { name: "sisyphuslabs", plugins: [{ name: "omo" }] });
-  await writeJson(join(runtimeRoot, "packages/omo-codex/plugin/.codex-plugin/plugin.json"), {
-    name: "omo",
+  await writeJson(join(runtimeRoot, "packages/lazycodex/marketplace.json"), { name: "sisyphuslabs", plugins: [{ name: "lazycodex" }] });
+  await writeJson(join(runtimeRoot, "packages/lazycodex/plugin/.codex-plugin/plugin.json"), {
+    name: "lazycodex",
     hooks: ["./hooks/user-prompt-submit.json"]
   });
-  await writeJson(join(runtimeRoot, "packages/omo-codex/plugin/.mcp.json"), { mcpServers: {} });
-  await writeJson(join(runtimeRoot, "packages/omo-codex/plugin/hooks/user-prompt-submit.json"), {
+  await writeJson(join(runtimeRoot, "packages/lazycodex/plugin/.mcp.json"), { mcpServers: {} });
+  await writeJson(join(runtimeRoot, "packages/lazycodex/plugin/hooks/user-prompt-submit.json"), {
     hooks: {
       UserPromptSubmit: [
         {
@@ -309,10 +309,10 @@ async function createRuntime(runtimeRoot: string): Promise<void> {
       ]
     }
   });
-  await writeText(join(runtimeRoot, "packages/omo-codex/plugin/components/ultrawork/dist/cli.js"), "console.log('ultrawork');\n");
-  await writeText(join(runtimeRoot, "packages/omo-codex/plugin/components/ultrawork/agents/plan.toml"), 'name = "plan"\n');
-  await writeText(join(runtimeRoot, "packages/omo-codex/plugin/components/ulw-loop/dist/cli.js"), "console.log('ulw-loop');\n");
-  await writeText(join(runtimeRoot, "packages/omo-codex/plugin/components/bootstrap/scripts/node-dispatch.ps1"), "node $args\n");
+  await writeText(join(runtimeRoot, "packages/lazycodex/plugin/components/ultrawork/dist/cli.js"), "console.log('ultrawork');\n");
+  await writeText(join(runtimeRoot, "packages/lazycodex/plugin/components/ultrawork/agents/plan.toml"), 'name = "plan"\n');
+  await writeText(join(runtimeRoot, "packages/lazycodex/plugin/components/ulw-loop/dist/cli.js"), "console.log('ulw-loop');\n");
+  await writeText(join(runtimeRoot, "packages/lazycodex/plugin/components/bootstrap/scripts/node-dispatch.ps1"), "node $args\n");
   await writeText(join(runtimeRoot, "node_modules/ignored.txt"), "ignored\n");
 }
 

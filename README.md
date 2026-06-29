@@ -2,7 +2,7 @@
 
 Lightweight LazyCodex runtime for OpenAI Codex.
 
-This repository packages the useful LazyCodex pieces extracted from OMO Codex Light into a small GitHub Releases distribution. It ships a prebuilt Codex plugin payload plus a small Node executor built with `tsdown`.
+This repository packages the useful LazyCodex pieces extracted from the upstream Codex Light runtime into a small GitHub Releases distribution. It ships a prebuilt Codex plugin payload plus a small Node executor built with `tsdown`.
 
 Distribution happens through GitHub Releases. The package registry stays unused.
 
@@ -24,7 +24,7 @@ curl -fsSL https://raw.githubusercontent.com/alexzhang1030/lazycodex-ai-lite/mai
 Check local state:
 
 ```bash
-omo status
+lazycodex status
 ```
 
 Uninstall:
@@ -45,11 +45,11 @@ The installer writes Codex config entries for plugin loading, plugin hooks, mult
 
 | Item | Purpose | Location or command |
 |------|---------|---------------------|
-| `omo@sisyphuslabs` | Codex marketplace plugin id loaded by Codex. | `CODEX_HOME/plugins/cache/sisyphuslabs/omo/<version>/` |
-| `omo` | Lightweight local CLI for LazyCodex runtime commands. | `omo status`, `omo uninstall`, `omo ulw-loop --help` |
+| `lazycodex@sisyphuslabs` | Codex marketplace plugin id loaded by Codex. | `CODEX_HOME/plugins/cache/sisyphuslabs/lazycodex/<version>/` |
+| `lazycodex` | Lightweight local CLI for LazyCodex runtime commands. | `lazycodex status`, `lazycodex uninstall`, `lazycodex ulw-loop --help` |
 | `ultrawork agents` | Codex subagent TOML bundle for planning, execution, review, and QA lanes. | `CODEX_HOME/agents/*.toml` |
 | `ulw-plan` | Planning skill for durable Ultrawork plans. | Prompt Codex with `ulw-plan ...` |
-| `ulw-loop` | Goal/loop runtime and steering hook. | `omo ulw-loop --help` |
+| `ulw-loop` | Goal/loop runtime and steering hook. | `lazycodex ulw-loop --help` |
 | `review-work` | Review skill for completed work. | Prompt Codex with `review-work ...` |
 
 Use it in Codex by prompting with:
@@ -61,8 +61,8 @@ ultrawork: implement this change with a plan, evidence, and review.
 The installer also links component CLIs:
 
 ```bash
-omo-ultrawork
-omo-ulw-loop
+lazycodex-ultrawork
+lazycodex-ulw-loop
 ```
 
 ## Runtime Profile
@@ -86,7 +86,7 @@ Current default build size:
 | Artifact | Size |
 |----------|------|
 | `runtime/package` | about 572 KB |
-| `runtime/package/packages/omo-codex/plugin` | about 560 KB |
+| `runtime/package/packages/lazycodex/plugin` | about 560 KB |
 | `dist/executor.mjs` | about 37 KB |
 | `release/lazycodex-ai-lite.tar.gz` | about 161 KB |
 
@@ -105,17 +105,17 @@ CODEX_HOME/
 +-- config.toml
 +-- agents/
 +-- runtime/lazycodex-ai-lite-package/
-+-- plugins/cache/sisyphuslabs/omo/<version>/
++-- plugins/cache/sisyphuslabs/lazycodex/<version>/
 +-- .tmp/marketplaces/sisyphuslabs/
 ```
 
 Local bin layout:
 
 ```text
-~/.local/bin/omo
+~/.local/bin/lazycodex
 ~/.local/bin/lazycodex-ai-lite
-~/.local/bin/omo-ultrawork
-~/.local/bin/omo-ulw-loop
+~/.local/bin/lazycodex-ultrawork
+~/.local/bin/lazycodex-ulw-loop
 ```
 
 For an isolated install:
@@ -139,7 +139,7 @@ bin/lazycodex-ai-lite.js status --json
 bin/lazycodex-ai-lite.js uninstall
 
 # run the bundled ulw-loop CLI
-omo ulw-loop --help
+lazycodex ulw-loop --help
 
 # copy runtime payload to a directory
 bin/lazycodex-ai-lite.js materialize --out /tmp/lazycodex-runtime
@@ -156,7 +156,7 @@ Install locked dev dependencies:
 bun install --frozen-lockfile
 ```
 
-Build the runtime from the sibling OMO source checkout:
+Build the runtime from the sibling upstream source checkout:
 
 ```bash
 bun run build:runtime
@@ -178,7 +178,7 @@ bun run src/build-standalone.ts \
   --optional=ulw-research,teammode,lazycodex-executor-verify
 ```
 
-The OMO source checkout needs generated Codex artifacts first:
+The upstream source checkout needs generated Codex artifacts first:
 
 ```bash
 cd /Users/alex/code/contribution/oh-my-openagent
@@ -228,4 +228,4 @@ Install flow and file graph live in [docs/repo-graph.md](docs/repo-graph.md).
 
 ## Credits
 
-This project is extracted from `omo-lazycodex` / OMO Codex Light runtime work in `oh-my-openagent`, then reduced to the minimal LazyCodex runtime surface listed above.
+This project credits the original LazyCodex runtime work in `oh-my-openagent`, then reduces it to the minimal runtime surface listed above.
